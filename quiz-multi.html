@@ -80,14 +80,31 @@ input[type="text"]::placeholder { color:#555; }
 .timer-fill { fill:none; stroke:var(--gold); stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 1s linear,stroke .5s; }
 .timer-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700; color:var(--gold); }
 
+.load-overlay { position:fixed;inset:0;background:rgba(10,10,26,.96);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px; }
+.load-overlay.active { display:flex; }
+.load-title { font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--gold);letter-spacing:2px; }
+.load-bar-wrap { width:220px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden; }
+.load-bar { height:100%;background:linear-gradient(90deg,var(--accent),var(--gold));border-radius:3px;width:0%;transition:width .3s ease; }
+.load-status { font-size:.78rem;color:#555;letter-spacing:1px; }
+
+.lifelines { display:flex; gap:6px; }
 .lifeline-btn { background:linear-gradient(135deg,#d4a017,var(--gold2)); border:none; border-radius:10px; padding:8px 10px; font-family:'Orbitron',sans-serif; font-size:.68rem; font-weight:700; color:#111; cursor:pointer; box-shadow:0 4px 14px rgba(255,215,0,.35); transition:opacity .3s,transform .15s; display:flex; flex-direction:column; align-items:center; gap:2px; }
 .lifeline-btn:disabled { opacity:.22; cursor:default; box-shadow:none; }
+.lifeline-btn.sc-btn { background:linear-gradient(135deg,#4a3fcc,#8844dd); color:#fff; box-shadow:0 4px 14px rgba(100,60,220,.35); }
+.lifeline-btn.sc-btn.armed { background:linear-gradient(135deg,#2277ff,#5540ee); box-shadow:0 0 18px rgba(34,119,255,.7); animation:sc-pulse 1.4s ease-in-out infinite; }
+@keyframes sc-pulse { 0%,100%{box-shadow:0 0 14px rgba(34,119,255,.6);}50%{box-shadow:0 0 30px rgba(34,119,255,.95),0 0 8px rgba(255,255,255,.15);} }
 .lifeline-icon { font-size:.95rem; }
+
+.creator-badge { position:fixed; bottom:16px; right:18px; z-index:200; display:flex; flex-direction:column; align-items:flex-end; gap:3px; pointer-events:auto; }
+.creator-badge a { display:flex; align-items:center; gap:5px; text-decoration:none; color:rgba(180,180,210,0.42); font-size:.66rem; letter-spacing:.5px; transition:color .2s; }
+.creator-badge a:hover { color:#e060a0; }
+.creator-badge .ai-line { font-size:.57rem; color:rgba(150,150,180,0.28); letter-spacing:1.8px; text-transform:uppercase; }
 
 .progress-bar { width:100%; height:4px; background:rgba(255,255,255,.07); border-radius:2px; margin-bottom:16px; }
 .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); border-radius:2px; transition:width .4s ease; }
 
-.question-num  { font-size:.7rem; color:#666; text-transform:uppercase; letter-spacing:3px; margin-bottom:10px; text-align:center; }
+.question-num  { font-size:.7rem; color:#666; text-transform:uppercase; letter-spacing:3px; margin-bottom:6px; text-align:center; }
+.question-cat  { font-size:.65rem; text-transform:uppercase; letter-spacing:2px; color:var(--accent); margin-bottom:10px; text-align:center; }
 .question-text { font-size:clamp(1rem,3vw,1.25rem); font-weight:700; text-align:center; line-height:1.5; margin-bottom:22px; color:#fff; }
 
 .answers { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; }
@@ -159,6 +176,12 @@ input[type="text"]::placeholder { color:#555; }
 </style>
 </head>
 <body>
+
+<div id="load-overlay" class="load-overlay">
+  <div class="load-title">Pobieranie pytań…</div>
+  <div class="load-bar-wrap"><div id="load-bar" class="load-bar"></div></div>
+  <div id="load-status" class="load-status">0 / 25</div>
+</div>
 
 <a href="index.html" style="position:fixed;top:14px;left:14px;z-index:999;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;color:#888;font-size:0.8rem;text-decoration:none;font-family:'Exo 2',sans-serif;transition:background 0.2s,color 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#ddd'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='#888'">← Menu</a>
 
@@ -232,10 +255,16 @@ input[type="text"]::placeholder { color:#555; }
       </svg>
       <div class="timer-text" id="timer-display">15</div>
     </div>
-    <button class="lifeline-btn" id="lifeline-btn" onclick="useLifeline()">
-      <span class="lifeline-icon">💡</span>
-      <span>50/50</span>
-    </button>
+    <div class="lifelines">
+      <button class="lifeline-btn" id="lifeline-btn" onclick="useLifeline()">
+        <span class="lifeline-icon">💡</span>
+        <span>50/50</span>
+      </button>
+      <button class="lifeline-btn sc-btn" id="lifeline-sc-btn" onclick="useSecondChance()" title="Tarcza: jeśli pierwsza odpowiedź zła — masz jeszcze jedną szansę">
+        <span class="lifeline-icon">🛡️</span>
+        <span>Tarcza</span>
+      </button>
+    </div>
     <div class="hud-box">
       <span class="hud-label">Punkty</span>
       <span class="hud-value" id="hud-score">0</span>
@@ -244,6 +273,7 @@ input[type="text"]::placeholder { color:#555; }
   <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
   <div class="card">
     <div class="question-num"  id="question-num">Pytanie 1 / 18</div>
+    <div class="question-cat"  id="question-cat"></div>
     <div class="question-text" id="question-text"></div>
     <div class="answers"       id="answers-grid"></div>
     <div class="feedback-text" id="feedback-text"></div>
@@ -398,10 +428,172 @@ const QUESTION_BANK = [
   {cat:'E',q:"W którym roku miała premierę pierwsza część \"Gwiezdnych Wojen\"?",a:["1975","1977","1979","1980"],c:1},
   {cat:'E',q:"Kto zagrał główną rolę w filmie \"Forrest Gump\" (1994)?",a:["Tom Cruise","Brad Pitt","Tom Hanks","Kevin Costner"],c:2},
   {cat:'E',q:"W którym roku powstał serwis społecznościowy Facebook?",a:["2002","2003","2004","2005"],c:2},
+
+  // === STOLICE — dodatkowe ===
+  {cat:'S',q:"Jaka jest stolica Chile?",a:["Santiago","Buenos Aires","Lima","Bogotá"],c:0},
+  {cat:'S',q:"Jaka jest stolica Korei Południowej?",a:["Pusan","Incheon","Seul","Daejeon"],c:2},
+  {cat:'S',q:"Jaka jest stolica Tajlandii?",a:["Chiang Mai","Phuket","Bangkok","Pattaya"],c:2},
+  {cat:'S',q:"Jaka jest stolica Wietnamu?",a:["Ho Chi Minh","Hanoi","Da Nang","Huế"],c:1},
+  {cat:'S',q:"Jaka jest stolica Arabii Saudyjskiej?",a:["Mekka","Medyna","Rijad","Dżudda"],c:2},
+  {cat:'S',q:"Jaka jest stolica Szwajcarii?",a:["Zurych","Genewa","Lozanna","Berno"],c:3},
+  {cat:'S',q:"Jaka jest stolica Szwecji?",a:["Göteborg","Malmö","Uppsala","Sztokholm"],c:3},
+  {cat:'S',q:"Jaka jest stolica Belgii?",a:["Antwerpia","Bruksela","Gandawa","Liège"],c:1},
+  {cat:'S',q:"Jaka jest stolica Austrii?",a:["Salzburg","Graz","Linz","Wiedeń"],c:3},
+  {cat:'S',q:"Jaka jest stolica Norwegii?",a:["Bergen","Trondheim","Oslo","Stavanger"],c:2},
+  {cat:'S',q:"Jaka jest stolica Czech?",a:["Brno","Ostrava","Praga","Pilzno"],c:2},
+  {cat:'S',q:"Jaka jest stolica Węgier?",a:["Debreczyn","Miskolc","Pécs","Budapeszt"],c:3},
+  {cat:'S',q:"Jaka jest stolica Rumunii?",a:["Kluż-Napoka","Timișoara","Braszów","Bukareszt"],c:3},
+  {cat:'S',q:"Jaka jest stolica Ukrainy?",a:["Lwów","Charków","Odessa","Kijów"],c:3},
+  {cat:'S',q:"Jaka jest stolica Maroka?",a:["Casablanca","Marrakesz","Fez","Rabat"],c:3},
+  {cat:'S',q:"Jaka jest stolica Iranu?",a:["Isfahan","Sziras","Teheran","Maszhad"],c:2},
+  {cat:'S',q:"Jaka jest stolica Kolumbii?",a:["Medellín","Cali","Cartagena","Bogotá"],c:3},
+  {cat:'S',q:"Jaka jest stolica Holandii?",a:["Utrecht","Rotterdam","Haga","Amsterdam"],c:3},
+  {cat:'S',q:"Jaka jest stolica Finlandii?",a:["Tampere","Turku","Helsinki","Oulu"],c:2},
+
+  // === GEOGRAFIA OGÓLNA — dodatkowe ===
+  {cat:'G',q:"Który kontynent jest najmniejszy?",a:["Europa","Antarktyda","Australia","Ameryka Płd."],c:2},
+  {cat:'G',q:"W których krajach leży pustynia Gobi?",a:["Chiny i Mongolia","Indie i Pakistan","Iran i Afganistan","Kazachstan i Rosja"],c:0},
+  {cat:'G',q:"Ile państw leży na kontynencie afrykańskim?",a:["43","54","62","71"],c:1},
+  {cat:'G',q:"Jaka jest najgłębsza depresja lądowa na Ziemi?",a:["Dolina Śmierci","Kotlina Kaspijska","Wybrzeże Morza Martwego","Jezioro Asal"],c:2},
+  {cat:'G',q:"Który kraj ma najdłuższą linię brzegową?",a:["Rosja","Australia","Norwegia","Kanada"],c:3},
+  {cat:'G',q:"Na którym kontynencie leżą Andy?",a:["Ameryka Północna","Ameryka Południowa","Azja","Afryka"],c:1},
+  {cat:'G',q:"Jaka jest najdłuższa rzeka Europy?",a:["Dunaj","Ren","Łaba","Wołga"],c:3},
+  {cat:'G',q:"Na którym kontynencie leżą Góry Skaliste?",a:["Ameryka Południowa","Ameryka Północna","Azja","Europa"],c:1},
+  {cat:'G',q:"Ile oceanów liczy Ziemia?",a:["4","5","6","7"],c:1},
+  {cat:'G',q:"Jaka jest najwyższa góra Europy?",a:["Mont Blanc","Matterhorn","Elbrus","Monte Rosa"],c:2},
+  {cat:'G',q:"Który kraj leży zarówno w Europie, jak i w Azji?",a:["Grecja","Bułgaria","Turcja","Syria"],c:2},
+  {cat:'G',q:"Przez ile państw przepływa Dunaj?",a:["6","8","10","12"],c:2},
+  {cat:'G',q:"Które miasto jest najludniejsze na świecie?",a:["Szanghaj","Delhi","Nowy Jork","Tokio"],c:3},
+  {cat:'G',q:"Jaka cieśnina oddziela Azję od Ameryki Północnej?",a:["Cieśnina Malakka","Cieśnina Beringa","Cieśnina Ormuz","Cieśnina Sunda"],c:1},
+  {cat:'G',q:"W którym kraju leży wulkan Fuji?",a:["Chiny","Korea Płd.","Japonia","Filipiny"],c:2},
+
+  // === RZEKI, GÓRY I CIEŚNINY — dodatkowe ===
+  {cat:'R',q:"Która rzeka jest najdłuższa w Afryce?",a:["Kongo","Niger","Zambezi","Nil"],c:3},
+  {cat:'R',q:"Która rzeka niesie najwięcej wody na świecie?",a:["Nil","Jangcy","Amazonka","Kongo"],c:2},
+  {cat:'R',q:"Przez które miasto przepływa rzeka Spree?",a:["Wiedeń","Hamburg","Berlin","Frankfurt"],c:2},
+  {cat:'R',q:"Nad którą rzeką leży Warszawa?",a:["Odra","Bug","Wisła","Narew"],c:2},
+  {cat:'R',q:"Jaki jest drugi najwyższy szczyt świata?",a:["Kangczendzonga","K2","Lhotse","Makalu"],c:1},
+  {cat:'R',q:"Nad którą rzeką leży Rzym?",a:["Arno","Tyber","Po","Adige"],c:1},
+  {cat:'R',q:"Który masyw górski oddziela Europę od Azji?",a:["Kaukaz","Alpy","Karpaty","Ural"],c:3},
+  {cat:'R',q:"Jaka rzeka przepływa przez Bagdad?",a:["Eufrat","Nil","Tygrys","Jordan"],c:2},
+  {cat:'R',q:"Do którego morza wpada Dunaj?",a:["Adriatyckie","Śródziemne","Czarne","Kaspijskie"],c:2},
+  {cat:'R',q:"Jaka rzeka przepływa przez Madryt?",a:["Ebro","Tag","Manzanares","Guadalquivir"],c:2},
+  {cat:'R',q:"Gdzie leży największy lodowiec Europy — Aletsch?",a:["Austria","Francja","Szwajcaria","Niemcy"],c:2},
+  {cat:'R',q:"Jaka rzeka przepływa przez Moskwę?",a:["Wołga","Oka","Dniepr","Moskwa"],c:3},
+  {cat:'R',q:"Jaka cieśnina oddziela Afrykę od Madagaskaru?",a:["Kanał Mozambicki","Cieśnina Ormuz","Cieśnina Malakka","Cieśnina Bab-el-Mandeb"],c:0},
+  {cat:'R',q:"Jaki jest najwyższy szczyt Australii?",a:["Mount Cook","Góra Kościuszki","Puncak Jaya","Ben Nevis"],c:1},
+  {cat:'R',q:"Nad którą rzeką leży Kijów?",a:["Don","Dniestr","Dniepr","Bug"],c:2},
+
+  // === HISTORIA — dodatkowe ===
+  {cat:'H',q:"Kto był pierwszym cesarzem Francji?",a:["Ludwik XIV","Karol Wielki","Napoleon Bonaparte","Robespierre"],c:2},
+  {cat:'H',q:"W którym roku wybuchło Powstanie Warszawskie?",a:["1939","1941","1943","1944"],c:3},
+  {cat:'H',q:"Kto napisał 'Manifest Komunistyczny'?",a:["Lenin","Marks i Engels","Trocki","Bakunin"],c:1},
+  {cat:'H',q:"Które państwo jako pierwsze wystrzeliło satelitę w kosmos?",a:["USA","Francja","ZSRR","Niemcy"],c:2},
+  {cat:'H',q:"Kto był ostatnim carem Rosji?",a:["Aleksander III","Aleksander II","Mikołaj I","Mikołaj II"],c:3},
+  {cat:'H',q:"W którym roku Turcy Osmańscy zdobyli Konstantynopol?",a:["1389","1453","1492","1517"],c:1},
+  {cat:'H',q:"W którym roku miała miejsce Rewolucja Październikowa?",a:["1905","1914","1917","1921"],c:2},
+  {cat:'H',q:"Kiedy ogłoszono Deklarację Niepodległości USA?",a:["1770","1773","1776","1783"],c:2},
+  {cat:'H',q:"Kto był naczelnym dowódcą sił alianckich podczas lądowania w Normandii?",a:["MacArthur","Patton","Montgomery","Eisenhower"],c:3},
+  {cat:'H',q:"W którym roku zakończono budowę Kanału Sueskiego?",a:["1856","1863","1869","1875"],c:2},
+  {cat:'H',q:"Który wódz mongolski zbudował największe imperium w historii?",a:["Kubilaj-chan","Batu-chan","Czyngis-chan","Timur Lenk"],c:2},
+  {cat:'H',q:"W którym roku miał miejsce krach giełdowy 'Czarny Czwartek'?",a:["1921","1925","1929","1933"],c:2},
+  {cat:'H',q:"Kto był cesarzem Niemiec podczas I Wojny Światowej?",a:["Wilhelm I","Fryderyk III","Wilhelm II","Karol I"],c:2},
+  {cat:'H',q:"W którym roku wybuchło Powstanie Kościuszkowskie?",a:["1788","1791","1794","1797"],c:2},
+  {cat:'H',q:"Który kraj podpisał traktat pokojowy w Wersalu (1919)?",a:["Austro-Węgry","Turcja","Bułgaria","Niemcy"],c:3},
+
+  // === NAUKA I TECHNIKA — dodatkowe ===
+  {cat:'N',q:"Ile wynosi prędkość światła w próżni (w zaokrągleniu)?",a:["30 000 km/s","300 000 km/s","3 000 000 km/s","30 000 000 km/s"],c:1},
+  {cat:'N',q:"Jaki jest symbol chemiczny rtęci?",a:["Rh","Ra","Hg","Rb"],c:2},
+  {cat:'N',q:"Z czego zbudowane jest jądro atomu?",a:["Protonów i elektronów","Neutronów i elektronów","Protonów i neutronów","Kwarków i mezonów"],c:2},
+  {cat:'N',q:"Który gaz jest najliczniej obecny w atmosferze Ziemi?",a:["Tlen","Dwutlenek węgla","Argon","Azot"],c:3},
+  {cat:'N',q:"Kto wynalazł żarówkę elektryczną?",a:["Nikola Tesla","Thomas Edison","Guglielmo Marconi","Michael Faraday"],c:1},
+  {cat:'N',q:"Ile elektronów ma atom węgla?",a:["4","6","8","12"],c:1},
+  {cat:'N',q:"Kto stworzył teorię względności?",a:["Max Planck","Niels Bohr","Werner Heisenberg","Albert Einstein"],c:3},
+  {cat:'N',q:"Jaki jest najcięższy naturalnie występujący pierwiastek?",a:["Ołów","Radon","Bizmut","Uran"],c:3},
+  {cat:'N',q:"Ile bitów ma 1 bajt?",a:["4","8","16","32"],c:1},
+  {cat:'N',q:"Co to jest fotosynteza?",a:["Dzielenie komórek","Przetwarzanie światła na energię przez rośliny","Rozkład związków organicznych","Fermentacja cukrów"],c:1},
+  {cat:'N',q:"Który pierwiastek ma symbol chemiczny Na?",a:["Azot","Neon","Sód","Nikiel"],c:2},
+  {cat:'N',q:"Która planeta jest najbliższa Słońcu?",a:["Wenus","Ziemia","Mars","Merkury"],c:3},
+  {cat:'N',q:"Co opisuje prawo Ohma?",a:["Ruch planet","Zależność napięcia prądu i oporu","Ciśnienie gazu","Siłę grawitacji"],c:1},
+  {cat:'N',q:"Jak nazywa się układ, w którym pogrupowano pierwiastki chemiczne?",a:["Tablica Mendelejewa","Tablica Avogadra","Tablica Darwina","Tablica Maxwella"],c:0},
+  {cat:'N',q:"Jaką planetę odkryto w 1781 roku jako pierwszą od czasów starożytnych?",a:["Neptun","Saturn","Uran","Mars"],c:2},
+
+  // === SPORT — dodatkowe ===
+  {cat:'SP',q:"Który kraj wygrał Mistrzostwa Świata w piłce nożnej 2018?",a:["Chorwacja","Belgia","Francja","Anglia"],c:2},
+  {cat:'SP',q:"W którym mieście znajduje się stadion Camp Nou?",a:["Madryt","Barcelona","Sewilla","Walencja"],c:1},
+  {cat:'SP',q:"Ile razy Brazylia wygrała Mistrzostwa Świata w piłce nożnej?",a:["3","4","5","6"],c:2},
+  {cat:'SP',q:"Jak długi jest olimpijski basen pływacki?",a:["25 m","33 m","50 m","100 m"],c:2},
+  {cat:'SP',q:"Kto jest rekordzistą w liczbie złotych medali olimpijskich?",a:["Mark Spitz","Usain Bolt","Michael Phelps","Carl Lewis"],c:2},
+  {cat:'SP',q:"Ile graczy liczy drużyna piłki siatkowej na boisku?",a:["5","6","7","8"],c:1},
+  {cat:'SP',q:"Ile dołków ma standardowe pole golfowe?",a:["9","12","18","24"],c:2},
+  {cat:'SP',q:"Który sport rozgrywa się na lodzie i używa kamieni?",a:["Hokej","Łyżwiarstwo figurowe","Curling","Biathlon"],c:2},
+  {cat:'SP',q:"Ile zawodników liczy drużyna baseballowa na boisku?",a:["7","8","9","10"],c:2},
+  {cat:'SP',q:"Który klub piłkarski ma przydomek 'Los Blancos'?",a:["FC Barcelona","Atlético Madryt","Real Madryt","Sevilla FC"],c:2},
+  {cat:'SP',q:"W jakim sporcie walczy się o tytuł Grand Slam?",a:["Golf","Tenis","Badminton","Squash"],c:1},
+  {cat:'SP',q:"Ile rund liczy mecz bokserski o mistrzostwo świata?",a:["10","12","15","20"],c:1},
+  {cat:'SP',q:"W którym roku Polska zdobyła złoto olimpijskie w piłce nożnej?",a:["1968","1972","1976","1980"],c:1},
+  {cat:'SP',q:"W jakim sporcie startuje się w biathlonie?",a:["Narciarstwo i łucznictwo","Narciarstwo i pływanie","Narciarstwo i strzelectwo","Narciarstwo i bobslej"],c:2},
+  {cat:'SP',q:"Który kraj zdobył złoty medal w piłce nożnej na IO Tokio 2020?",a:["Brazylia","Hiszpania","Francja","Niemcy"],c:0},
+
+  // === KULTURA I SZTUKA — dodatkowe ===
+  {cat:'K',q:"Kto napisał 'Faust'?",a:["Friedrich Schiller","Johann Wolfgang von Goethe","Friedrich Nietzsche","Thomas Mann"],c:1},
+  {cat:'K',q:"W którym kraju urodził się Pablo Picasso?",a:["Francja","Włochy","Portugalia","Hiszpania"],c:3},
+  {cat:'K',q:"Kto stworzył słynną rzeźbę 'Dawid'?",a:["Donatello","Auguste Rodin","Michał Anioł","Gian Bernini"],c:2},
+  {cat:'K',q:"Kto namalował 'Krzyk'?",a:["Gustav Klimt","Edvard Munch","Salvador Dalí","René Magritte"],c:1},
+  {cat:'K',q:"Kto skomponował 'Cztery pory roku'?",a:["Johann Sebastian Bach","Georg Handel","Antonio Vivaldi","Joseph Haydn"],c:2},
+  {cat:'K',q:"Kto napisał 'Dziady'?",a:["Juliusz Słowacki","Adam Mickiewicz","Cyprian Norwid","Zygmunt Krasiński"],c:1},
+  {cat:'K',q:"Kto napisał 'Mistrz i Małgorzata'?",a:["Fiodor Dostojewski","Lew Tołstoj","Anton Czechow","Michaił Bułhakow"],c:3},
+  {cat:'K',q:"Który taniec pochodzi z Argentyny?",a:["Samba","Tango","Salsa","Cumbia"],c:1},
+  {cat:'K',q:"Kto napisał powieść 'Lalka'?",a:["Henryk Sienkiewicz","Bolesław Prus","Eliza Orzeszkowa","Stefan Żeromski"],c:1},
+  {cat:'K',q:"Kto namalował 'Guernicę'?",a:["Salvador Dalí","Joan Miró","Pablo Picasso","Francisco Goya"],c:2},
+  {cat:'K',q:"Który pisarz napisał 'Quo Vadis'?",a:["Bolesław Prus","Stefan Żeromski","Henryk Sienkiewicz","Władysław Reymont"],c:2},
+  {cat:'K',q:"Kto napisał powieść 'Don Kichot'?",a:["Lope de Vega","Miguel de Cervantes","Francisco de Quevedo","Tirso de Molina"],c:1},
+  {cat:'K',q:"Jak nazywa się słynna opera Bizeta?",a:["Traviata","Aida","Carmen","Tosca"],c:2},
+  {cat:'K',q:"Kto stworzył rzeźbę 'Myśliciel'?",a:["Michał Anioł","Leonardo da Vinci","Auguste Rodin","Constantin Brâncuși"],c:2},
+  {cat:'K',q:"W którym mieście mieści się muzeum Prado?",a:["Barcelonie","Madrycie","Sewilli","Walencji"],c:1},
+
+  // === PRZYRODA I ZWIERZĘTA — dodatkowe ===
+  {cat:'P',q:"Ile nóg ma krab?",a:["6","8","10","12"],c:2},
+  {cat:'P',q:"Jaki jest największy ptak na świecie?",a:["Albatros","Emu","Struś","Kondor"],c:2},
+  {cat:'P',q:"Ile żołądków ma krowa?",a:["1","2","3","4"],c:3},
+  {cat:'P',q:"Ile oczu ma pająk?",a:["2","4","6","8"],c:3},
+  {cat:'P',q:"Który ocean jest najbardziej słony?",a:["Spokojny","Atlantycki","Indyjski","Arktyczny"],c:1},
+  {cat:'P',q:"Co to jest fototropizm?",a:["Wzrost rośliny w kierunku światła","Rozmnażanie przez nasiona","Typ fotosyntezy","Ruch liści przy dotyku"],c:0},
+  {cat:'P',q:"Ile kończyn ma rozgwiazda?",a:["3","4","5","6"],c:2},
+  {cat:'P',q:"Co to jest hibernacja?",a:["Letni odpoczynek zwierząt","Sen zimowy","Migracja ptaków","Linienie owadów"],c:1},
+  {cat:'P',q:"Który ssak jako jedyny potrafi naprawdę latać?",a:["Latająca wiewiórka","Latający lemur","Colugo","Nietoperz"],c:3},
+  {cat:'P',q:"Jak nazywa się proces wydalania wody przez rośliny?",a:["Fotosynteza","Oddychanie","Transpiracja","Osmoza"],c:2},
+  {cat:'P',q:"Co wyróżnia ssaki spośród innych kręgowców?",a:["Oddychanie płucami","Karmienie młodych mlekiem","Ciepłokrwistość","Posiadanie szkieletu"],c:1},
+  {cat:'P',q:"Który ptak jest symbolem pokoju?",a:["Orzeł","Gołąb","Bocian","Żuraw"],c:1},
+  {cat:'P',q:"Ile kości ma dorosły rekin?",a:["0 — szkielet z chrząstki","50–100","200–300","Tyle samo co człowiek"],c:0},
+  {cat:'P',q:"Ile par skrzydeł ma motyl?",a:["1 parę","2 pary","3 pary","4 pary"],c:1},
+  {cat:'P',q:"Jak długo może żyć żółw olbrzymi?",a:["30–40 lat","50–70 lat","80–100 lat","Ponad 150 lat"],c:3},
+
+  // === FILM, MUZYKA, ROZRYWKA — dodatkowe ===
+  {cat:'E',q:"Kto zaśpiewał przebój 'Hotel California'?",a:["Fleetwood Mac","Eagles","Lynyrd Skynyrd","The Doors"],c:1},
+  {cat:'E',q:"W którym roku odbyła się pierwsza edycja festiwalu Woodstock?",a:["1967","1968","1969","1970"],c:2},
+  {cat:'E',q:"Kto zagrał Indianę Jonesa?",a:["Tom Hanks","Harrison Ford","Mel Gibson","Bruce Willis"],c:1},
+  {cat:'E',q:"Kto wyreżyserował 'Listę Schindlera'?",a:["Martin Scorsese","Francis Ford Coppola","Steven Spielberg","Stanley Kubrick"],c:2},
+  {cat:'E',q:"W którym roku premierę miał film 'Ojciec chrzestny'?",a:["1969","1970","1971","1972"],c:3},
+  {cat:'E',q:"Kto zagrał Jokera w filmie z 2019 roku?",a:["Heath Ledger","Jack Nicholson","Jared Leto","Joaquin Phoenix"],c:3},
+  {cat:'E',q:"Jak nazywa się studio twórców gry 'Wiedźmin'?",a:["Techland","11 bit studios","CD Projekt Red","People Can Fly"],c:2},
+  {cat:'E',q:"Ile Oscarów zdobył 'Władca Pierścieni: Powrót króla'?",a:["9","10","11","12"],c:2},
+  {cat:'E',q:"Kto założył firmę Apple?",a:["Bill Gates","Mark Zuckerberg","Steve Jobs","Jeff Bezos"],c:2},
+  {cat:'E',q:"Kto stworzył postać Jamesa Bonda?",a:["John le Carré","Tom Clancy","Ian Fleming","Frederick Forsyth"],c:2},
+  {cat:'E',q:"W którym roku wydano grę 'Minecraft'?",a:["2009","2010","2011","2012"],c:2},
+  {cat:'E',q:"Jak nazywa się główny bohater gry 'The Legend of Zelda'?",a:["Zelda","Link","Ganon","Sheik"],c:1},
+  {cat:'E',q:"Który serial animowany jest najdłużej emitowanym w USA?",a:["Family Guy","South Park","Simpsonowie","Futurama"],c:2},
+  {cat:'E',q:"Kto zaśpiewał przebój 'We Will Rock You'?",a:["AC/DC","Queen","Aerosmith","Metallica"],c:1},
+  {cat:'E',q:"W jakim filmie Disneya zaśpiewano 'Let It Go'?",a:["Kraina Lodu","Roszpunka","Vaiana","Mała syrenka"],c:0},
 ];
 
 const LETTERS = ['A','B','C','D'];
 const TIMER_MAX = 15;
+const CAT_NAMES = {
+  S:'Stolice', G:'Geografia', R:'Rzeki i Góry', H:'Historia',
+  N:'Nauka i Technika', SP:'Sport', K:'Kultura i Sztuka',
+  P:'Przyroda', E:'Film i Muzyka'
+};
 const CIRC = 2 * Math.PI * 27; // ≈ 169.6
 const QUESTIONS_PER_CATEGORY = 2;
 
@@ -418,6 +610,8 @@ let myUID = sessionStorage.getItem('wqUID') || (() => {
 let myName = '';
 let isHost = false;
 let lifelineAvailable = true;
+let secondChanceAvailable = true;
+let secondChanceActive = false;
 let myScore = 0;
 let myCorrect = 0;
 let hasAnswered = false;
@@ -426,6 +620,7 @@ let hostAdvanceTimer = null;
 let currentQIdx = -1;
 let currentQStart = 0;
 let selectedQ = [];
+let serverQuestions = [];
 let db, gameRef;
 
 // ── Helpers ──
@@ -485,6 +680,62 @@ function shuffle(arr) {
   return arr;
 }
 
+// ── OTDB + Google Translate (darmowy endpoint) ────────
+function decodeHTML(str) {
+  const el = document.createElement('textarea');
+  el.innerHTML = str; return el.value;
+}
+
+async function gTranslate(text) {
+  try {
+    const r = await fetchWithTimeout(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pl&dt=t&q=${encodeURIComponent(text)}`,
+      5000
+    );
+    const d = await r.json();
+    return d[0].map(s => s[0]).join('');
+  } catch { return text; }
+}
+
+const OTDB_CAT = {
+  'Geography':'G','History':'H','Science & Nature':'N',
+  'Science: Computers':'N','Science: Mathematics':'N',
+  'Sports':'SP','Entertainment: Music':'E','Entertainment: Film':'E',
+  'Entertainment: Books':'K','Mythology':'H','General Knowledge':'G',
+  'Politics':'H','Art':'K','Animals':'P','Vehicles':'N','Celebrities':'K',
+};
+
+async function fetchWithTimeout(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try { const r = await fetch(url, { signal: ctrl.signal }); clearTimeout(id); return r; }
+  catch (e) { clearTimeout(id); throw e; }
+}
+
+async function fetchAndTranslate(count, onProgress) {
+  if (location.protocol === 'file:') throw new Error('file://');
+  const r = await fetchWithTimeout(`https://opentdb.com/api.php?amount=${count}&type=multiple`);
+  if (!r.ok) throw new Error();
+  const d = await r.json();
+  if (d.response_code !== 0) throw new Error();
+  const out = [];
+  for (const item of d.results) {
+    const q  = decodeHTML(item.question);
+    const ca = decodeHTML(item.correct_answer);
+    const wa = item.incorrect_answers.map(decodeHTML);
+    const [tQ, tC, tW0, tW1, tW2] = await Promise.all([
+      gTranslate(q), gTranslate(ca),
+      gTranslate(wa[0]), gTranslate(wa[1]), gTranslate(wa[2]),
+    ]);
+    const all = [{ t: tC, ok: true }, { t: tW0 }, { t: tW1 }, { t: tW2 }];
+    shuffle(all);
+    out.push({ q: tQ, a: all.map(x => x.t), c: all.findIndex(x => x.ok), cat: OTDB_CAT[item.category] || 'G' });
+    onProgress(out.length, count);
+  }
+  return out;
+}
+
+// ── Losowanie z banku (fallback offline) ──────────────
 function selectQuestions() {
   const byCategory = {};
   QUESTION_BANK.forEach((q,i) => {
@@ -527,6 +778,7 @@ async function joinGame() {
       myCorrect = players[myUID].correct || 0;
       isHost = data.host === myUID;
       lifelineAvailable = players[myUID].lifeline !== false;
+      secondChanceAvailable = players[myUID].lifeline2 !== false;
       err.textContent = '';
       listenToGame();
       return;
@@ -592,7 +844,7 @@ function listenToGame() {
       if (newIdx !== currentQIdx) {
         currentQIdx = newIdx;
         currentQStart = data.qStart || Date.now();
-        selectedQ = data.selected || [];
+        serverQuestions = data.questions || (data.selected || []).map(i => QUESTION_BANK[i]);
         renderQuestion(data);
       }
       updateAnsweredCount(data);
@@ -627,11 +879,33 @@ function renderLobby(data) {
 
 async function hostStartGame() {
   if (!isHost) return;
-  const questions = selectQuestions();
+
+  const overlay    = document.getElementById('load-overlay');
+  const loadBar    = document.getElementById('load-bar');
+  const loadStatus = document.getElementById('load-status');
+  overlay.classList.add('active');
+  loadBar.style.width = '0%';
+  loadStatus.textContent = '0 / 25';
+
+  let questions;
+  try {
+    questions = await fetchAndTranslate(25, (done, total) => {
+      loadBar.style.width = (done / total * 100) + '%';
+      loadStatus.textContent = `${done} / ${total}`;
+    });
+  } catch {
+    // Fallback: pobierz z lokalnego banku
+    questions = selectQuestions().map(i => QUESTION_BANK[i]);
+    loadStatus.textContent = '⚠ Brak połączenia — tryb offline';
+    await new Promise(res => setTimeout(res, 1400));
+  }
+
+  overlay.classList.remove('active');
+
   const snap = await gameRef.child('players').once('value');
   const updates = {
     status: 'playing',
-    selected: questions,
+    questions,
     qIdx: 0,
     qStart: firebase.database.ServerValue.TIMESTAMP,
     answers: null
@@ -640,7 +914,7 @@ async function hostStartGame() {
     updates[`players/${uid}/score`]   = 0;
     updates[`players/${uid}/correct`] = 0;
   });
-  myScore = 0; myCorrect = 0; lifelineAvailable = true;
+  myScore = 0; myCorrect = 0; lifelineAvailable = true; secondChanceAvailable = true; secondChanceActive = false;
   await gameRef.update(updates);
 }
 
@@ -648,19 +922,23 @@ async function hostStartGame() {
 function renderQuestion(data) {
   clearTimers();
   hasAnswered = false;
-  const q = QUESTION_BANK[selectedQ[currentQIdx]];
-  const total = selectedQ.length;
+  const q = serverQuestions[currentQIdx];
+  const total = serverQuestions.length;
   const players = data.players || {};
 
   document.getElementById('hud-players').textContent = Object.keys(players).length;
   document.getElementById('hud-score').textContent   = myScore;
   document.getElementById('question-num').textContent  = `Pytanie ${currentQIdx+1} / ${total}`;
+  document.getElementById('question-cat').textContent  = CAT_NAMES[q.cat] || '';
   document.getElementById('question-text').textContent = q.q;
   document.getElementById('progress-fill').style.width = ((currentQIdx/total)*100)+'%';
   document.getElementById('feedback-text').textContent = '';
   document.getElementById('feedback-text').className   = 'feedback-text';
   document.getElementById('answered-count').textContent = '';
   document.getElementById('lifeline-btn').disabled = !lifelineAvailable;
+  const scBtn = document.getElementById('lifeline-sc-btn');
+  scBtn.disabled = !secondChanceAvailable;
+  scBtn.classList.toggle('armed', secondChanceActive);
 
   const grid = document.getElementById('answers-grid');
   grid.innerHTML = '';
@@ -715,8 +993,22 @@ function handleTimeUp(q) {
 
 async function selectAnswer(chosen, q) {
   if (hasAnswered) return;
+
+  // Tarcza: pierwsza zła odpowiedź → jeszcze jedna szansa
+  if (secondChanceActive && chosen >= 0 && chosen !== q.c) {
+    secondChanceActive = false;
+    const btns2 = document.querySelectorAll('.answer-btn');
+    btns2[chosen].classList.add('wrong');
+    btns2[chosen].disabled = true;
+    const fb2 = document.getElementById('feedback-text');
+    fb2.textContent = '🛡️ Tarcza! Spróbuj jeszcze raz…';
+    fb2.className = 'feedback-text wrong';
+    document.getElementById('lifeline-sc-btn').classList.remove('armed');
+    return;
+  }
+
   hasAnswered = true;
-  clearTimers();
+  clearInterval(timerInterval);
 
   const localNow  = Date.now() + serverTimeOffset;
   const elapsed   = Math.floor((localNow - currentQStart) / 1000);
@@ -732,10 +1024,6 @@ async function selectAnswer(chosen, q) {
   }
   gameRef.child(`answers/${currentQIdx}/${myUID}`).set(chosen);
   revealAnswer(q, chosen, pts);
-
-  if (isHost) {
-    hostAdvanceTimer = setTimeout(() => advanceAfterReveal(), 2200);
-  }
 }
 
 function revealAnswer(q, chosen, pts) {
@@ -762,11 +1050,22 @@ function updateAnsweredCount(data) {
 async function advanceAfterReveal() {
   if (!isHost) return;
   const nextIdx = currentQIdx + 1;
-  if (nextIdx >= selectedQ.length) {
+  if (nextIdx >= serverQuestions.length) {
     await gameRef.update({ status:'finished' });
   } else {
     await gameRef.update({ qIdx:nextIdx, qStart:firebase.database.ServerValue.TIMESTAMP });
   }
+}
+
+// ── Tarcza (druga szansa) ──
+function useSecondChance() {
+  if (!secondChanceAvailable || hasAnswered) return;
+  secondChanceAvailable = false;
+  secondChanceActive = true;
+  const btn = document.getElementById('lifeline-sc-btn');
+  btn.disabled = true;
+  btn.classList.add('armed');
+  gameRef.child(`players/${myUID}/lifeline2`).set(false);
 }
 
 // ── Koło ratunkowe ──
@@ -774,7 +1073,8 @@ function useLifeline() {
   if (!lifelineAvailable || hasAnswered) return;
   lifelineAvailable = false;
   document.getElementById('lifeline-btn').disabled = true;
-  const q = QUESTION_BANK[selectedQ[currentQIdx]];
+  gameRef.child(`players/${myUID}/lifeline`).set(false);
+  const q = serverQuestions[currentQIdx];
   const btns = Array.from(document.querySelectorAll('.answer-btn'));
   const wrongIdxs = btns.map((_,i)=>i).filter(i=>i!==q.c);
   shuffle(wrongIdxs).slice(0,2).forEach(i => {
@@ -816,7 +1116,7 @@ function renderResults(data) {
 
 async function playAgain() {
   if (!isHost) return;
-  myScore = 0; myCorrect = 0; currentQIdx = -1; lifelineAvailable = true;
+  myScore = 0; myCorrect = 0; currentQIdx = -1; lifelineAvailable = true; secondChanceAvailable = true; secondChanceActive = false;
   await gameRef.update({ status:'lobby', selected:null, qIdx:null, qStart:null, answers:null });
 }
 
@@ -858,5 +1158,17 @@ window.addEventListener('load', () => {
   }
 });
 </script>
+
+<div class="creator-badge">
+  <a href="https://instagram.com/_jvkubb_" target="_blank" rel="noopener noreferrer">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/>
+    </svg>
+    @_jvkubb_
+  </a>
+  <span class="ai-line">Made with AI</span>
+</div>
 </body>
 </html>

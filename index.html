@@ -18,155 +18,401 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
+  padding: 0 20px;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,.4)  0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 25% 55%, rgba(255,255,255,.2)  0%, transparent 100%),
-    radial-gradient(1px 1px at 70% 30%, rgba(255,255,255,.3)  0%, transparent 100%);
-  pointer-events: none;
-  z-index: 0;
-}
-
+/* Tytuł — górny pasek, przyklejony do góry */
 .wrapper {
-  position: relative;
-  z-index: 1;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 2;
+  pointer-events: none;
   text-align: center;
-  max-width: 520px;
-  width: 100%;
+  padding: clamp(28px, 5vh, 52px) 20px 0;
 }
 
 .logo {
   font-family: 'Orbitron', sans-serif;
-  font-size: clamp(2.2rem, 8vw, 3.8rem);
+  font-size: clamp(2rem, 7vw, 3.4rem);
   font-weight: 900;
   background: linear-gradient(135deg, #f5c518, #fff, #ffd700);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 3px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .subtitle {
-  font-size: .82rem;
+  font-size: .78rem;
   color: #555;
   letter-spacing: 4px;
   text-transform: uppercase;
-  margin-bottom: 48px;
 }
 
+/* Karty — wyśrodkowane na ekranie (nad Słońcem), przezroczyste */
 .cards {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  width: min(300px, 88vw);
 }
 
 .mode-card {
-  background: #16163a;
-  border: 1px solid rgba(108,99,255,.3);
-  border-radius: 20px;
-  padding: 28px 28px;
+  pointer-events: auto;
+  background: rgba(4,4,16,0.30);
+  border: 2px solid rgba(80,80,110,.70);
+  border-radius: 14px;
+  padding: 13px 18px;
   text-decoration: none;
   color: inherit;
   display: flex;
   align-items: center;
-  gap: 20px;
-  transition: transform .2s, box-shadow .2s, border-color .2s;
-  box-shadow: 0 0 30px rgba(108,99,255,.08), 0 10px 40px rgba(0,0,0,.4);
-  text-align: left;
+  gap: 14px;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+  box-shadow: 0 0 8px rgba(0,0,0,.25);
 }
 
 .mode-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 0 40px rgba(108,99,255,.2), 0 16px 50px rgba(0,0,0,.5);
-  border-color: rgba(108,99,255,.6);
+  background: rgba(108,99,255,0.14);
+  border-color: rgba(110,110,150,.90);
+  box-shadow: 0 0 18px rgba(0,0,0,.4);
 }
 
 .mode-icon {
-  font-size: 2.4rem;
+  font-size: 1.6rem;
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
-  background: rgba(108,99,255,.12);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .mode-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: 1rem;
+  font-size: .75rem;
   font-weight: 700;
-  color: #fff;
-  margin-bottom: 5px;
+  color: #ccc;
   letter-spacing: 1px;
 }
 
-.mode-desc {
-  font-size: .82rem;
-  color: #666;
-  line-height: 1.5;
-}
+.mode-desc { display: none; }
 
 .mode-badge {
   margin-left: auto;
   flex-shrink: 0;
-  font-size: .65rem;
+  font-size: .57rem;
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  padding: 5px 12px;
+  padding: 3px 9px;
   border-radius: 20px;
 }
 
 .badge-local {
-  background: rgba(255,215,0,.12);
-  color: #f5c518;
-  border: 1px solid rgba(255,215,0,.25);
+  background: transparent;
+  color: #f5c518aa;
+  border: 1px solid rgba(255,215,0,.18);
 }
 
 .badge-online {
-  background: rgba(0,230,118,.1);
-  color: #00e676;
-  border: 1px solid rgba(0,230,118,.25);
+  background: transparent;
+  color: #00e676aa;
+  border: 1px solid rgba(0,230,118,.18);
+}
+
+#solar-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#planet-tooltip {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  display: none;
+  background: rgba(8,8,22,0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(108,99,255,0.4);
+  border-radius: 14px;
+  padding: 11px 16px;
+  max-width: 200px;
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55);
+}
+#planet-tooltip .pt-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f5c518;
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+#planet-tooltip .pt-fact {
+  font-size: 0.74rem;
+  color: #999;
+  line-height: 1.5;
+}
+
+.creator-badge {
+  position: fixed;
+  bottom: 16px;
+  right: 18px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  pointer-events: auto;
+}
+.creator-badge a {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  color: rgba(180,180,210,0.42);
+  font-size: .66rem;
+  font-family: 'Exo 2', sans-serif;
+  letter-spacing: .5px;
+  transition: color .2s;
+}
+.creator-badge a:hover { color: #e060a0; }
+.creator-badge .ai-line {
+  font-size: .57rem;
+  color: rgba(150,150,180,0.28);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  font-family: 'Exo 2', sans-serif;
 }
 </style>
 </head>
 <body>
+<canvas id="solar-canvas"></canvas>
+<div id="planet-tooltip"><div class="pt-name"></div><div class="pt-fact"></div></div>
+
+<div class="creator-badge">
+  <a href="https://instagram.com/_jvkubb_" target="_blank" rel="noopener noreferrer">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/>
+    </svg>
+    @_jvkubb_
+  </a>
+  <span class="ai-line">Made with AI</span>
+</div>
+
 <div class="wrapper">
   <div class="logo">WORLD QUIZ</div>
   <div class="subtitle">Wiedza o Świecie</div>
-
-  <div class="cards">
-    <a class="mode-card" href="quiz-multi.html">
-      <div class="mode-icon">🌐</div>
-      <div>
-        <div class="mode-title">Multiplayer Online</div>
-        <div class="mode-desc">Graj z innymi przez internet. Wspólny kod pokoju, synchronizowany timer, ranking na żywo.</div>
-      </div>
-      <span class="mode-badge badge-online">Online</span>
-    </a>
-
-    <a class="mode-card" href="quiz.html">
-      <div class="mode-icon">🎮</div>
-      <div>
-        <div class="mode-title">Gra Lokalna</div>
-        <div class="mode-desc">Gracze grają po kolei na jednym urządzeniu. Idealne na spotkania i imprezy.</div>
-      </div>
-      <span class="mode-badge badge-local">Lokalna</span>
-    </a>
-  </div>
 </div>
+
+<div class="cards">
+  <a class="mode-card" href="quiz-multi.html">
+    <div class="mode-icon">🌐</div>
+    <div class="mode-title">Multiplayer Online</div>
+    <span class="mode-badge badge-online">Online</span>
+  </a>
+
+  <a class="mode-card" href="quiz.html">
+    <div class="mode-icon">🎮</div>
+    <div class="mode-title">Gra Lokalna</div>
+    <span class="mode-badge badge-local">Lokalna</span>
+  </a>
+</div>
+
+<script>
+(function () {
+  const canvas  = document.getElementById('solar-canvas');
+  const ctx     = canvas.getContext('2d');
+  const tooltip = document.getElementById('planet-tooltip');
+  const ttName  = tooltip.querySelector('.pt-name');
+  const ttFact  = tooltip.querySelector('.pt-fact');
+
+  const TILT = 0.28;
+
+  const SUN  = { name: 'Słońce',  fact: 'Ma 1,4 mln km średnicy — 109 razy więcej niż Ziemia' };
+  const MOON = { name: 'Księżyc', fact: 'Jedyny naturalny satelita Ziemi, oddalony o ~384 000 km' };
+
+  const PLANETS = [
+    { r: 110, speed: 0.90, size: 3,  color: '#9090b8', phase: 0.5, name: 'Merkury', fact: 'Okrąża Słońce w zaledwie 88 dni' },
+    { r: 168, speed: 0.58, size: 5,  color: '#e8c890', phase: 2.1, name: 'Wenus',   fact: 'Najgorętsza planeta — powierzchnia ma 462°C' },
+    { r: 240, speed: 0.38, size: 6,  color: '#5bc8f5', phase: 4.3, name: 'Ziemia',  fact: 'Jedyna znana planeta z życiem we Wszechświecie' },
+    { r: 315, speed: 0.22, size: 4,  color: '#e87070', phase: 1.1, name: 'Mars',    fact: 'Ma najwyższy wulkan w Układzie — Olympus Mons (22 km)' },
+    { r: 418, speed: 0.13, size: 12, color: '#f5a855', phase: 3.7, name: 'Jowisz',  fact: 'Największa planeta — zmieściłoby się w niej 1300 Ziemi' },
+    { r: 530, speed: 0.08, size: 10, color: '#f5d87a', phase: 0.8, name: 'Saturn',  fact: 'Pierścienie rozciągają się na 280 000 km', ring: true },
+    { r: 655, speed: 0.05, size: 8,  color: '#7adff5', phase: 5.2, name: 'Uran',    fact: 'Obraca się na boku — oś nachylona o 98° do orbity' },
+  ];
+
+  const STARS = Array.from({ length: 220 }, () => ({
+    x:  Math.random(),
+    y:  Math.random(),
+    r:  Math.random() * 1.2 + 0.3,
+    a:  Math.random() * 0.5 + 0.2,
+    ts: Math.random() * 0.02 + 0.005,
+    to: Math.random() * Math.PI * 2,
+  }));
+
+  let t = 0, mouseX = -9999, mouseY = -9999;
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width  * 0.5;
+    const cy = canvas.height * 0.5;
+    let hovered = null;
+
+    // Skala orbit — Uran zawsze mieści się na ekranie
+    const OS = Math.min(1,
+      canvas.width  * 0.46 / 655,
+      canvas.height * 0.46 / (655 * TILT)
+    );
+
+    // ── Gwiazdy ──────────────────────────────────────────
+    ctx.shadowBlur = 0;
+    STARS.forEach(s => {
+      const alpha = s.a + Math.sin(t * s.ts * 60 + s.to) * 0.15;
+      ctx.beginPath();
+      ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0, alpha)})`;
+      ctx.fill();
+    });
+
+    // ── Poświata Słońca ───────────────────────────────────
+    const sg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
+    sg.addColorStop(0,    'rgba(255,235,120,0.30)');
+    sg.addColorStop(0.45, 'rgba(245,197,24,0.10)');
+    sg.addColorStop(1,    'transparent');
+    ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI * 2);
+    ctx.fillStyle = sg; ctx.fill();
+
+    // ── Orbity ────────────────────────────────────────────
+    PLANETS.forEach(p => {
+      ctx.shadowBlur  = 5;
+      ctx.shadowColor = 'rgba(108,99,255,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, p.r * OS, p.r * TILT * OS, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(140,130,255,0.28)';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+
+    // ── Orbit Księżyca (wokół Ziemi) ──────────────────────
+    const MOON_R = 26;
+    const eA = PLANETS[2].phase + t * PLANETS[2].speed;
+    const eX = cx + Math.cos(eA) * PLANETS[2].r * OS;
+    const eY = cy + Math.sin(eA) * PLANETS[2].r * TILT * OS;
+
+    ctx.beginPath();
+    ctx.ellipse(eX, eY, MOON_R, MOON_R * TILT, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200,200,220,0.16)';
+    ctx.lineWidth   = 0.6;
+    ctx.stroke();
+
+    // ── Planety ───────────────────────────────────────────
+    PLANETS.forEach(p => {
+      const angle = p.phase + t * p.speed;
+      const px = cx + Math.cos(angle) * p.r * OS;
+      const py = cy + Math.sin(angle) * p.r * TILT * OS;
+
+      if (!hovered && Math.hypot(mouseX - px, mouseY - py) < Math.max(p.size * 4, 20))
+        hovered = { p, px, py };
+
+      // Poświata
+      const glow = ctx.createRadialGradient(px, py, 0, px, py, p.size * 3.5);
+      glow.addColorStop(0,   p.color + 'bb');
+      glow.addColorStop(0.5, p.color + '44');
+      glow.addColorStop(1,   'transparent');
+      ctx.beginPath(); ctx.arc(px, py, p.size * 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = glow; ctx.fill();
+
+      // Rdzeń
+      ctx.shadowBlur  = 8;
+      ctx.shadowColor = p.color;
+      ctx.beginPath(); ctx.arc(px, py, p.size, 0, Math.PI * 2);
+      ctx.fillStyle   = p.color; ctx.fill();
+      ctx.shadowBlur  = 0;
+
+      // Pierścień Saturna
+      if (p.ring) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size * 2.5, p.size * 0.55, angle * 0.08, 0, Math.PI * 2);
+        ctx.strokeStyle = p.color + '80';
+        ctx.lineWidth   = 2.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+
+    // ── Księżyc ───────────────────────────────────────────
+    const mA = t * 4.0;
+    const mX = eX + Math.cos(mA) * MOON_R;
+    const mY = eY + Math.sin(mA) * MOON_R * TILT;
+
+    if (!hovered && Math.hypot(mouseX - mX, mouseY - mY) < 14)
+      hovered = { p: MOON, px: mX, py: mY };
+
+    // Poświata Księżyca
+    const mg = ctx.createRadialGradient(mX, mY, 0, mX, mY, 9);
+    mg.addColorStop(0,   'rgba(200,200,220,0.5)');
+    mg.addColorStop(1,   'transparent');
+    ctx.beginPath(); ctx.arc(mX, mY, 9, 0, Math.PI * 2);
+    ctx.fillStyle = mg; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(mX, mY, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#c8c8d8'; ctx.fill();
+
+    // ── Słońce ────────────────────────────────────────────
+    if (!hovered && Math.hypot(mouseX - cx, mouseY - cy) < 26)
+      hovered = { p: SUN, px: cx, py: cy };
+
+    ctx.shadowBlur  = 24;
+    ctx.shadowColor = '#ffc400';
+    const sc = ctx.createRadialGradient(cx, cy, 0, cx, cy, 16);
+    sc.addColorStop(0,    '#ffffff');
+    sc.addColorStop(0.3,  '#fff5c0');
+    sc.addColorStop(0.65, '#f5c518');
+    sc.addColorStop(1,    '#e09010');
+    ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.fillStyle   = sc; ctx.fill();
+    ctx.shadowBlur  = 0;
+
+    // ── Tooltip ───────────────────────────────────────────
+    if (hovered) {
+      ttName.textContent = hovered.p.name;
+      ttFact.textContent = hovered.p.fact;
+      const tx = Math.min(mouseX + 18, canvas.width  - 220);
+      const ty = Math.min(mouseY + 18, canvas.height - 100);
+      tooltip.style.left    = tx + 'px';
+      tooltip.style.top     = ty + 'px';
+      tooltip.style.display = 'block';
+      document.body.style.cursor = 'pointer';
+    } else {
+      tooltip.style.display      = 'none';
+      document.body.style.cursor = 'default';
+    }
+
+    t += 0.003;
+    requestAnimationFrame(draw);
+  }
+
+  // Śledzenie myszy na całym oknie — hover działa wszędzie
+  window.addEventListener('mousemove',  e => { mouseX = e.clientX; mouseY = e.clientY; });
+  window.addEventListener('mouseleave', () => { mouseX = -9999; mouseY = -9999; tooltip.style.display = 'none'; });
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+})();
+</script>
 </body>
 </html>
