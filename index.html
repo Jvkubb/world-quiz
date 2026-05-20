@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Quiz</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=Orbitron:wght@700;900&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Exo 2', sans-serif;
+  background: #0a0a1a;
+  color: #e8e8ff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,.4)  0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 55%, rgba(255,255,255,.2)  0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 30%, rgba(255,255,255,.3)  0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 520px;
+  width: 100%;
+}
+
+.logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(2.2rem, 8vw, 3.8rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, #f5c518, #fff, #ffd700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: .82rem;
+  color: #555;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 48px;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mode-card {
+  background: #16163a;
+  border: 1px solid rgba(108,99,255,.3);
+  border-radius: 20px;
+  padding: 28px 28px;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+  box-shadow: 0 0 30px rgba(108,99,255,.08), 0 10px 40px rgba(0,0,0,.4);
+  text-align: left;
+}
+
+.mode-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 40px rgba(108,99,255,.2), 0 16px 50px rgba(0,0,0,.5);
+  border-color: rgba(108,99,255,.6);
+}
+
+.mode-icon {
+  font-size: 2.4rem;
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  background: rgba(108,99,255,.12);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mode-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+}
+
+.mode-desc {
+  font-size: .82rem;
+  color: #666;
+  line-height: 1.5;
+}
+
+.mode-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.badge-local {
+  background: rgba(255,215,0,.12);
+  color: #f5c518;
+  border: 1px solid rgba(255,215,0,.25);
+}
+
+.badge-online {
+  background: rgba(0,230,118,.1);
+  color: #00e676;
+  border: 1px solid rgba(0,230,118,.25);
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="logo">WORLD QUIZ</div>
+  <div class="subtitle">Wiedza o Świecie</div>
+
+  <div class="cards">
+    <a class="mode-card" href="quiz-multi.html">
+      <div class="mode-icon">🌐</div>
+      <div>
+        <div class="mode-title">Multiplayer Online</div>
+        <div class="mode-desc">Graj z innymi przez internet. Wspólny kod pokoju, synchronizowany timer, ranking na żywo.</div>
+      </div>
+      <span class="mode-badge badge-online">Online</span>
+    </a>
+
+    <a class="mode-card" href="quiz.html">
+      <div class="mode-icon">🎮</div>
+      <div>
+        <div class="mode-title">Gra Lokalna</div>
+        <div class="mode-desc">Gracze grają po kolei na jednym urządzeniu. Idealne na spotkania i imprezy.</div>
+      </div>
+      <span class="mode-badge badge-local">Lokalna</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>

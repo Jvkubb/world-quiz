@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>World Quiz — Multiplayer</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700;900&family=Orbitron:wght@700;900&display=swap');
+
+:root {
+  --gold: #f5c518; --gold2: #ffd700;
+  --bg: #0a0a1a; --card: #16163a;
+  --accent: #6c63ff; --green: #00e676; --red: #ff1744; --text: #e8e8ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Exo 2', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  overflow-x: hidden; padding: 16px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,.4)  0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,.35) 0%, transparent 100%);
+}
+
+.screen { display:none; flex-direction:column; align-items:center; width:100%; max-width:600px; position:relative; z-index:1; animation:fadeIn .4s ease; }
+.screen.active { display:flex; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+.logo { font-family:'Orbitron',sans-serif; font-size:clamp(1.8rem,6vw,3rem); font-weight:900; background:linear-gradient(135deg,var(--gold),#fff,var(--gold2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-align:center; letter-spacing:2px; margin-bottom:6px; }
+.subtitle { font-size:.82rem; color:#888; margin-bottom:24px; letter-spacing:3px; text-transform:uppercase; text-align:center; }
+
+.card { background:var(--card); border:1px solid rgba(108,99,255,.3); border-radius:20px; padding:26px 22px; width:100%; box-shadow:0 0 40px rgba(108,99,255,.12),0 20px 60px rgba(0,0,0,.5); }
+
+input[type="text"] { width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(108,99,255,.4); border-radius:12px; padding:14px 18px; color:var(--text); font-family:'Exo 2',sans-serif; font-size:1rem; outline:none; transition:border-color .2s,box-shadow .2s; }
+input[type="text"]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.2); }
+input[type="text"]::placeholder { color:#555; }
+
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 28px; border-radius:12px; border:none; font-family:'Orbitron',sans-serif; font-size:.88rem; font-weight:700; cursor:pointer; transition:transform .15s,box-shadow .2s,opacity .2s; letter-spacing:1px; width:100%; margin-top:14px; }
+.btn:active { transform:scale(.97); }
+.btn:disabled { opacity:.35; cursor:default; transform:none; }
+.btn-gold { background:linear-gradient(135deg,#d4a017,var(--gold2)); color:#111; box-shadow:0 6px 24px rgba(255,215,0,.35); }
+.btn-gold:hover:not(:disabled) { box-shadow:0 8px 30px rgba(255,215,0,.55); transform:translateY(-2px); }
+.btn-primary { background:linear-gradient(135deg,var(--accent),#a29bfe); color:#fff; box-shadow:0 6px 24px rgba(108,99,255,.4); }
+.btn-primary:hover:not(:disabled) { box-shadow:0 8px 30px rgba(108,99,255,.6); transform:translateY(-2px); }
+
+.error-msg { color:var(--red); font-size:.82rem; text-align:center; margin-top:8px; min-height:18px; }
+.warning-box { background:rgba(255,23,68,.1); border:1px solid rgba(255,23,68,.3); border-radius:12px; padding:14px; margin-bottom:14px; font-size:.82rem; color:#ff6b8a; line-height:1.6; text-align:center; }
+.info-box { background:rgba(108,99,255,.1); border:1px solid rgba(108,99,255,.25); border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:.85rem; color:#aaa; line-height:1.6; text-align:center; }
+
+/* Lobby */
+.lobby-player { display:flex; align-items:center; gap:12px; padding:10px 14px; background:rgba(255,255,255,.03); border:1px solid rgba(108,99,255,.12); border-radius:10px; margin-bottom:8px; animation:fadeIn .3s ease; }
+.lobby-avatar { width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--accent),#a29bfe); display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:.9rem; font-weight:900; color:#fff; flex-shrink:0; }
+.lobby-name { font-weight:700; flex:1; }
+.badge { font-size:.62rem; padding:3px 8px; border-radius:20px; letter-spacing:1px; text-transform:uppercase; font-weight:700; }
+.badge-host { background:rgba(255,215,0,.15); color:var(--gold); border:1px solid rgba(255,215,0,.3); }
+.badge-you  { background:rgba(108,99,255,.15); color:#a29bfe;   border:1px solid rgba(108,99,255,.3); }
+
+/* HUD */
+.hud { display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:14px; gap:8px; }
+.hud-box { background:var(--card); border:1px solid rgba(108,99,255,.25); border-radius:12px; padding:8px 12px; display:flex; flex-direction:column; align-items:center; min-width:72px; }
+.hud-label { font-size:.58rem; color:#666; text-transform:uppercase; letter-spacing:2px; margin-bottom:3px; }
+.hud-value { font-family:'Orbitron',sans-serif; font-size:.95rem; font-weight:700; color:var(--gold); }
+
+.timer-circle { position:relative; width:64px; height:64px; }
+.timer-svg { transform:rotate(-90deg); }
+.timer-bg   { fill:none; stroke:rgba(255,255,255,.08); stroke-width:5; }
+.timer-fill { fill:none; stroke:var(--gold); stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 1s linear,stroke .5s; }
+.timer-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700; color:var(--gold); }
+
+.lifeline-btn { background:linear-gradient(135deg,#d4a017,var(--gold2)); border:none; border-radius:10px; padding:8px 10px; font-family:'Orbitron',sans-serif; font-size:.68rem; font-weight:700; color:#111; cursor:pointer; box-shadow:0 4px 14px rgba(255,215,0,.35); transition:opacity .3s,transform .15s; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.lifeline-btn:disabled { opacity:.22; cursor:default; box-shadow:none; }
+.lifeline-icon { font-size:.95rem; }
+
+.progress-bar { width:100%; height:4px; background:rgba(255,255,255,.07); border-radius:2px; margin-bottom:16px; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); border-radius:2px; transition:width .4s ease; }
+
+.question-num  { font-size:.7rem; color:#666; text-transform:uppercase; letter-spacing:3px; margin-bottom:10px; text-align:center; }
+.question-text { font-size:clamp(1rem,3vw,1.25rem); font-weight:700; text-align:center; line-height:1.5; margin-bottom:22px; color:#fff; }
+
+.answers { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; }
+.answer-btn { background:rgba(255,255,255,.04); border:1.5px solid rgba(108,99,255,.25); border-radius:14px; padding:14px 14px; color:var(--text); font-family:'Exo 2',sans-serif; font-size:.88rem; font-weight:600; cursor:pointer; text-align:left; transition:background .2s,border-color .2s,transform .15s; display:flex; align-items:center; gap:10px; min-height:62px; }
+.answer-btn:hover:not(:disabled) { background:rgba(108,99,255,.15); border-color:var(--accent); transform:translateY(-2px); }
+.answer-btn:disabled { cursor:default; }
+.answer-letter { font-family:'Orbitron',sans-serif; font-size:.72rem; font-weight:700; background:rgba(108,99,255,.2); border-radius:6px; width:26px; height:26px; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--accent); }
+.answer-btn.correct { background:rgba(0,230,118,.15); border-color:var(--green); }
+.answer-btn.correct .answer-letter { background:rgba(0,230,118,.3); color:var(--green); }
+.answer-btn.wrong   { background:rgba(255,23,68,.12);  border-color:var(--red); opacity:.65; }
+.answer-btn.wrong .answer-letter { background:rgba(255,23,68,.25); color:var(--red); }
+
+.feedback-text { font-family:'Orbitron',sans-serif; font-size:.95rem; font-weight:700; text-align:center; margin-top:14px; min-height:26px; }
+.feedback-text.correct { color:var(--green); }
+.feedback-text.wrong   { color:var(--red); }
+.answered-count { font-size:.75rem; color:#444; text-align:center; margin-top:8px; min-height:18px; }
+
+/* Results */
+.results-title { font-family:'Orbitron',sans-serif; font-size:clamp(1.3rem,4vw,2rem); font-weight:900; background:linear-gradient(135deg,var(--gold),#fff,var(--gold2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-align:center; margin-bottom:6px; }
+.results-sub   { color:#666; font-size:.75rem; letter-spacing:3px; text-transform:uppercase; text-align:center; margin-bottom:22px; }
+
+.result-table { width:100%; border-collapse:collapse; }
+.result-table thead tr { background:rgba(108,99,255,.15); }
+.result-table th { font-family:'Orbitron',sans-serif; font-size:.6rem; font-weight:700; color:#888; letter-spacing:2px; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:1px solid rgba(108,99,255,.2); }
+.result-table th:first-child { text-align:center; width:44px; }
+.result-table th.col-r { text-align:right; }
+.result-table tbody tr { border-bottom:1px solid rgba(255,255,255,.05); animation:fadeIn .4s ease both; }
+.result-table tbody tr:last-child { border-bottom:none; }
+.result-table tbody tr.rank-1 { background:rgba(255,215,0,.07); }
+.result-table tbody tr.rank-2 { background:rgba(180,180,180,.05); }
+.result-table tbody tr.rank-3 { background:rgba(205,127,50,.06); }
+.result-table td { padding:12px 12px; font-size:.9rem; vertical-align:middle; }
+.td-rank { text-align:center; }
+.rank-badge { display:inline-flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:.8rem; font-weight:900; width:30px; height:30px; border-radius:8px; }
+.rank-badge.r1 { background:linear-gradient(135deg,#b8860b,var(--gold2)); color:#111; }
+.rank-badge.r2 { background:linear-gradient(135deg,#555,#bbb);           color:#fff; }
+.rank-badge.r3 { background:linear-gradient(135deg,#7b4f26,#cd7f32);      color:#fff; }
+.rank-badge.rn { background:rgba(255,255,255,.07);                         color:#666; }
+.td-player { display:flex; align-items:center; gap:10px; }
+.td-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--accent),#a29bfe); display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:.85rem; font-weight:900; color:#fff; flex-shrink:0; }
+.td-nick   { font-weight:700; }
+.td-cor    { text-align:center; font-family:'Orbitron',sans-serif; font-size:.75rem; }
+.td-cor .ok  { color:var(--green); font-weight:700; }
+.td-cor .tot { color:#555; }
+.td-pts { text-align:right; font-family:'Orbitron',sans-serif; font-size:.95rem; font-weight:700; color:var(--gold); white-space:nowrap; }
+
+/* Room code box */
+.room-code-box { display:flex; align-items:center; justify-content:space-between; gap:12px; background:rgba(108,99,255,.1); border:1px solid rgba(108,99,255,.28); border-radius:14px; padding:12px 16px; margin-bottom:16px; }
+.room-code-label { font-size:.6rem; color:#666; text-transform:uppercase; letter-spacing:2px; margin-bottom:3px; }
+.room-code-val { font-family:'Orbitron',sans-serif; font-size:1.6rem; font-weight:900; color:var(--gold); letter-spacing:6px; }
+.btn-copy { background:rgba(108,99,255,.2); border:1px solid rgba(108,99,255,.35); color:#a29bfe; border-radius:8px; padding:8px 14px; font-size:.75rem; cursor:pointer; font-family:'Exo 2',sans-serif; font-weight:700; transition:background .2s,border-color .2s,color .2s; white-space:nowrap; flex-shrink:0; }
+.btn-copy:hover { background:rgba(108,99,255,.35); }
+.btn-copy.copied { background:rgba(0,230,118,.15); border-color:var(--green); color:var(--green); }
+
+/* Room code input on join screen */
+#room-input { margin-top:10px; text-transform:uppercase; letter-spacing:4px; text-align:center; font-family:'Orbitron',sans-serif; font-size:.95rem; }
+#room-input::placeholder { font-family:'Exo 2',sans-serif; letter-spacing:1px; font-size:.85rem; text-transform:none; }
+
+/* Live code preview */
+.code-preview { display:flex; gap:10px; justify-content:center; margin-bottom:18px; }
+.code-char { width:52px; height:60px; background:rgba(255,255,255,.04); border:2px solid rgba(108,99,255,.25); border-radius:12px; display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:1.6rem; font-weight:900; color:#333; transition:border-color .2s,color .2s,background .2s; }
+.code-char.filled { border-color:var(--accent); color:var(--gold); background:rgba(108,99,255,.12); }
+.code-char.cursor { border-color:var(--accent); animation:blink .9s step-end infinite; }
+@keyframes blink { 50% { border-color:rgba(108,99,255,.1); } }
+
+@media (max-width:480px) {
+  .answers { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" style="position:fixed;top:14px;left:14px;z-index:999;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;color:#888;font-size:0.8rem;text-decoration:none;font-family:'Exo 2',sans-serif;transition:background 0.2s,color 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#ddd'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='#888'">← Menu</a>
+
+<!-- ── JOIN ── -->
+<div class="screen active" id="screen-join">
+  <div class="logo">WORLD QUIZ</div>
+  <div class="subtitle">Multiplayer</div>
+  <div class="card">
+    <div id="config-warning" class="warning-box" style="display:none;">
+      ⚠️ Firebase nie jest skonfigurowany.<br>
+      Uzupełnij <strong>firebaseConfig</strong> w pliku HTML.
+    </div>
+    <div class="info-box">
+      Wpisz nickname i dołącz.<br>
+      <span style="color:#555;font-size:.8rem;">Zostaw kod pokoju pusty — nowy pokój zostanie utworzony. Wpisz kod znajomego, żeby dołączyć do jego gry.</span>
+    </div>
+    <div class="code-preview" id="code-preview">
+      <div class="code-char cursor" id="cc0">_</div>
+      <div class="code-char" id="cc1">_</div>
+      <div class="code-char" id="cc2">_</div>
+      <div class="code-char" id="cc3">_</div>
+    </div>
+    <input type="text" id="name-input" placeholder="Twój nickname..." maxlength="20" autocomplete="off"
+      onkeydown="if(event.key==='Enter') document.getElementById('room-input').focus()">
+    <input type="text" id="room-input" placeholder="Kod pokoju (opcjonalnie)" maxlength="4" autocomplete="off"
+      onkeydown="if(event.key==='Enter') joinGame()"
+      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); updateCodePreview(this.value)"
+      onfocus="updateCodePreview(this.value)"
+      onblur="updateCodePreview(this.value, true)">
+    <div class="error-msg" id="join-error"></div>
+    <button class="btn btn-gold" onclick="joinGame()">Dołącz / Utwórz pokój ▶</button>
+  </div>
+</div>
+
+<!-- ── LOBBY ── -->
+<div class="screen" id="screen-lobby">
+  <div class="logo">WORLD QUIZ</div>
+  <div class="subtitle">Poczekalnia</div>
+  <div class="card">
+    <div class="room-code-box">
+      <div>
+        <div class="room-code-label">Kod pokoju</div>
+        <div class="room-code-val" id="room-code-display">----</div>
+      </div>
+      <button class="btn-copy" id="copy-btn" onclick="copyInviteLink()">Skopiuj link</button>
+    </div>
+    <div style="font-size:.72rem;color:#666;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;text-align:center;">Gracze</div>
+    <div id="lobby-players" style="margin-bottom:18px;min-height:50px;"></div>
+    <div id="host-start" style="display:none;">
+      <p style="color:#888;font-size:.82rem;margin-bottom:12px;text-align:center;">Jesteś gospodarzem — kliknij Start gdy wszyscy dołączą.</p>
+      <button class="btn btn-gold" onclick="hostStartGame()">Rozpocznij grę ▶</button>
+    </div>
+    <div id="guest-wait" style="display:none;color:#555;font-size:.85rem;text-align:center;padding:10px 0;">
+      Czekaj aż gospodarz rozpocznie grę...
+    </div>
+  </div>
+</div>
+
+<!-- ── PYTANIE ── -->
+<div class="screen" id="screen-question">
+  <div class="hud">
+    <div class="hud-box">
+      <span class="hud-label">Gracze</span>
+      <span class="hud-value" id="hud-players">-</span>
+    </div>
+    <div class="timer-circle">
+      <svg class="timer-svg" viewBox="0 0 64 64" width="64" height="64">
+        <circle class="timer-bg"   cx="32" cy="32" r="27"/>
+        <circle class="timer-fill" id="timer-arc" cx="32" cy="32" r="27"
+          stroke-dasharray="169.6" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-text" id="timer-display">15</div>
+    </div>
+    <button class="lifeline-btn" id="lifeline-btn" onclick="useLifeline()">
+      <span class="lifeline-icon">💡</span>
+      <span>50/50</span>
+    </button>
+    <div class="hud-box">
+      <span class="hud-label">Punkty</span>
+      <span class="hud-value" id="hud-score">0</span>
+    </div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="card">
+    <div class="question-num"  id="question-num">Pytanie 1 / 18</div>
+    <div class="question-text" id="question-text"></div>
+    <div class="answers"       id="answers-grid"></div>
+    <div class="feedback-text" id="feedback-text"></div>
+    <div class="answered-count" id="answered-count"></div>
+  </div>
+</div>
+
+<!-- ── WYNIKI ── -->
+<div class="screen" id="screen-results">
+  <div class="results-title">Wyniki Końcowe</div>
+  <div class="results-sub">Klasyfikacja</div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table class="result-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Gracz</th>
+          <th style="text-align:center;">Poprawne</th>
+          <th class="col-r">Wynik</th>
+        </tr>
+      </thead>
+      <tbody id="result-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:18px;width:100%;">
+    <button class="btn btn-primary" id="play-again-btn" style="display:none;" onclick="playAgain()">Zagraj ponownie ↺</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  🔧 FIREBASE CONFIG — WKLEJ TUTAJ SWOJE DANE
+// ════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyDo5iWg0zNjNRGEISaxGL724ChTC8p9iPY",
+  authDomain:        "quiz-963d3.firebaseapp.com",
+  databaseURL:       "https://quiz-963d3-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "quiz-963d3",
+  storageBucket:     "quiz-963d3.firebasestorage.app",
+  messagingSenderId: "1035333069908",
+  appId:             "1:1035333069908:web:db864b5be69510db4f11c1"
+};
+// ════════════════════════════════════════════════════
+
+const QUESTION_BANK = [
+  {cat:'S',q:"Jaka jest stolica Argentyny?",a:["Buenos Aires","Montevideo","Santiago","Lima"],c:0},
+  {cat:'S',q:"Jaka jest stolica Australii?",a:["Sydney","Melbourne","Canberra","Brisbane"],c:2},
+  {cat:'S',q:"Jaka jest stolica Kanady?",a:["Toronto","Vancouver","Montréal","Ottawa"],c:3},
+  {cat:'S',q:"Jaka jest stolica Brazylii?",a:["Rio de Janeiro","São Paulo","Brasília","Salvador"],c:2},
+  {cat:'S',q:"Jaka jest stolica Japonii?",a:["Kioto","Osaka","Tokio","Nagoja"],c:2},
+  {cat:'S',q:"Jaka jest stolica Egiptu?",a:["Aleksandria","Kair","Luksor","Suez"],c:1},
+  {cat:'S',q:"Jaka jest stolica Turcji?",a:["Stambuł","Izmir","Bursa","Ankara"],c:3},
+  {cat:'S',q:"Jaka jest stolica Pakistanu?",a:["Karaczi","Lahore","Islamabad","Peszawar"],c:2},
+  {cat:'S',q:"Jaka jest stolica Nowej Zelandii?",a:["Auckland","Christchurch","Wellington","Dunedin"],c:2},
+  {cat:'S',q:"Jaka jest stolica Nigerii?",a:["Lagos","Kano","Ibadan","Abudża"],c:3},
+  {cat:'S',q:"Jaka jest stolica Indii?",a:["Mumbaj","Kalkuta","Bangalore","Nowe Delhi"],c:3},
+  {cat:'S',q:"Jaka jest stolica Meksyku?",a:["Guadalajara","Monterrey","Miasto Meksyk","Tijuana"],c:2},
+  {cat:'S',q:"Jaka jest stolica Grecji?",a:["Saloniki","Kreta","Ateny","Patras"],c:2},
+  {cat:'G',q:"Który kontynent jest największy powierzchniowo?",a:["Ameryka Północna","Afryka","Azja","Europa"],c:2},
+  {cat:'G',q:"Który kraj zajmuje największą powierzchnię na Ziemi?",a:["Kanada","USA","Chiny","Rosja"],c:3},
+  {cat:'G',q:"Ile kontynentów liczy nasza Ziemia?",a:["5","6","7","8"],c:2},
+  {cat:'G',q:"Który ocean jest największy na świecie?",a:["Atlantycki","Indyjski","Arktyczny","Spokojny"],c:3},
+  {cat:'G',q:"Gdzie leży najwyższy szczyt świata – Mount Everest?",a:["Nepal/Chiny","Indie/Pakistan","Bhutan/Chiny","Nepal/Indie"],c:0},
+  {cat:'G',q:"Które z podanych państw jest wyspą?",a:["Węgry","Czechy","Islandia","Austria"],c:2},
+  {cat:'G',q:"Który kraj ma najwięcej jezior na świecie?",a:["Finlandia","Szwecja","Rosja","Kanada"],c:3},
+  {cat:'G',q:"Na którym kontynencie leży Egipt?",a:["Azja","Europa","Afryka","Ameryka Płd."],c:2},
+  {cat:'G',q:"Jaki ocean leży między Europą a Ameryką Północną?",a:["Indyjski","Spokojny","Atlantycki","Arktyczny"],c:2},
+  {cat:'G',q:"Która gorąca pustynia jest największa na świecie?",a:["Gobi","Kalahari","Arabia","Sahara"],c:3},
+  {cat:'G',q:"Ile wynosi przybliżony obwód Ziemi?",a:["20 000 km","30 000 km","40 000 km","50 000 km"],c:2},
+  {cat:'G',q:"Które morze oddziela Europę od Afryki?",a:["Czarne","Kaspijskie","Czerwone","Śródziemne"],c:3},
+  {cat:'R',q:"Przez które miasto przepływa rzeka Sekwana?",a:["Lyon","Bruksela","Paryż","Marsylia"],c:2},
+  {cat:'R',q:"Która rzeka przepływa przez Londyn?",a:["Ren","Tamiza","Sekwana","Łaba"],c:1},
+  {cat:'R',q:"Która rzeka jest najdłuższa w Polsce?",a:["Odra","Bug","Wisła","Warta"],c:2},
+  {cat:'R',q:"Nad którą rzeką leży Kair?",a:["Eufrat","Niger","Nil","Kongo"],c:2},
+  {cat:'R',q:"Która rzeka przepływa przez Wiedeń, Budapeszt i Belgrad?",a:["Ren","Łaba","Dunaj","Wołga"],c:2},
+  {cat:'R',q:"Jaki jest najwyższy szczyt Afryki?",a:["Góra Kenia","Kilimandżaro","Atlas","Ruwenzori"],c:1},
+  {cat:'R',q:"Jaki jest najwyższy szczyt Ameryki Południowej?",a:["Chimborazo","Huascarán","Aconcagua","Cotopaxi"],c:2},
+  {cat:'R',q:"Jaki jest najwyższy szczyt Europy (poza Kaukazem)?",a:["Monte Rosa","Matterhorn","Mont Blanc","Eiger"],c:2},
+  {cat:'R',q:"Jaka cieśnina łączy Ocean Atlantycki z Morzem Śródziemnym?",a:["Bosfor","Messyńska","Gibraltarska","Sycylijska"],c:2},
+  {cat:'R',q:"Jaka cieśnina łączy Morze Czarne z Morzem Marmara?",a:["Dardanele","Bosfor","Mesyna","Kercz"],c:1},
+  {cat:'R',q:"Jaka cieśnina oddziela Wielką Brytanię od Francji?",a:["Skagerrak","La Manche","Kattegat","Sund"],c:1},
+  {cat:'R',q:"Jaka cieśnina łączy Pacyfik z Atlantykiem na południu Ameryki?",a:["Cieśnina Darwina","Cieśnina Magellana","Cieśnina Drake'a","Kanał Panamski"],c:1},
+  {cat:'H',q:"W którym roku zakończyła się II Wojna Światowa?",a:["1943","1944","1945","1946"],c:2},
+  {cat:'H',q:"Kto był pierwszym prezydentem Stanów Zjednoczonych?",a:["Abraham Lincoln","Thomas Jefferson","Benjamin Franklin","George Washington"],c:3},
+  {cat:'H',q:"W którym roku wybuchła I Wojna Światowa?",a:["1912","1913","1914","1915"],c:2},
+  {cat:'H',q:"W którym roku upadł Mur Berliński?",a:["1987","1988","1989","1990"],c:2},
+  {cat:'H',q:"Kto odkrył Amerykę w 1492 roku?",a:["Amerigo Vespucci","Ferdynand Magellan","Krzysztof Kolumb","Vasco da Gama"],c:2},
+  {cat:'H',q:"W którym roku Polska odzyskała niepodległość po zaborach?",a:["1916","1917","1918","1919"],c:2},
+  {cat:'H',q:"W którym roku wybuchła Rewolucja Francuska?",a:["1779","1785","1789","1795"],c:2},
+  {cat:'H',q:"Który kraj jako pierwszy przyznał kobietom prawa wyborcze?",a:["Wielka Brytania","USA","Nowa Zelandia","Francja"],c:2},
+  {cat:'H',q:"Kto był pierwszym człowiekiem w kosmosie?",a:["Neil Armstrong","Buzz Aldrin","Jurij Gagarin","Alan Shepard"],c:2},
+  {cat:'H',q:"W którym roku Polska wstąpiła do Unii Europejskiej?",a:["2002","2003","2004","2005"],c:2},
+  {cat:'H',q:"Kto rządził ZSRR podczas II Wojny Światowej?",a:["Lenin","Trocki","Stalin","Chruszczow"],c:2},
+  {cat:'H',q:"W którym roku odkryto penicylinę?",a:["1918","1923","1928","1935"],c:2},
+  {cat:'N',q:"Co oznacza wzór chemiczny H₂O?",a:["Tlen","Wodór","Woda","Dwutlenek węgla"],c:2},
+  {cat:'N',q:"Ile kości ma dorosły człowiek?",a:["165","186","206","250"],c:2},
+  {cat:'N',q:"Kto wynalazł telefon?",a:["Thomas Edison","Nikola Tesla","Alexander Graham Bell","Guglielmo Marconi"],c:2},
+  {cat:'N',q:"Jaki pierwiastek chemiczny oznacza symbol Au?",a:["Srebro","Aluminium","Miedź","Złoto"],c:3},
+  {cat:'N',q:"Kto sformułował teorię ewolucji?",a:["Isaac Newton","Albert Einstein","Karol Darwin","Louis Pasteur"],c:2},
+  {cat:'N',q:"W którym roku Neil Armstrong stanął na Księżycu?",a:["1965","1967","1969","1971"],c:2},
+  {cat:'N',q:"Jaki jest symbol chemiczny żelaza?",a:["Ir","Fe","Fi","Fr"],c:1},
+  {cat:'N',q:"Która planeta Układu Słonecznego jest największa?",a:["Saturn","Jowisz","Neptun","Uran"],c:1},
+  {cat:'N',q:"Ile planet liczy Układ Słoneczny?",a:["7","8","9","10"],c:1},
+  {cat:'N',q:"Kto sformułował prawo powszechnego ciążenia?",a:["Albert Einstein","Galileusz","Isaac Newton","Mikołaj Kopernik"],c:2},
+  {cat:'N',q:"Ile chromosomów ma człowiek?",a:["23","44","46","48"],c:2},
+  {cat:'N',q:"Który pierwiastek chemiczny jest najlżejszy?",a:["Hel","Lit","Wodór","Beryl"],c:2},
+  {cat:'SP',q:"Ile graczy ma drużyna piłkarska na boisku?",a:["9","10","11","12"],c:2},
+  {cat:'SP',q:"W którym kraju odbyły się pierwsze nowożytne Igrzyska Olimpijskie (1896)?",a:["Francja","Włochy","Grecja","Niemcy"],c:2},
+  {cat:'SP',q:"Który kraj wygrał najwięcej Mistrzostw Świata w piłce nożnej?",a:["Niemcy","Argentyna","Włochy","Brazylia"],c:3},
+  {cat:'SP',q:"Jak długi jest dystans maratonu?",a:["40 km","42,195 km","44 km","45,5 km"],c:1},
+  {cat:'SP',q:"W jakim sporcie rywalizuje się o Puchar Davisa?",a:["Golf","Tenis","Badminton","Squash"],c:1},
+  {cat:'SP',q:"Ile drużyn liczy liga NBA?",a:["28","30","32","34"],c:1},
+  {cat:'SP',q:"Który kraj wygrał Euro 2020 (rozgrywane w 2021)?",a:["Francja","Anglia","Włochy","Belgia"],c:2},
+  {cat:'SP',q:"Ile zawodników gra jednocześnie na boisku w koszykówce (jedna drużyna)?",a:["4","5","6","7"],c:1},
+  {cat:'SP',q:"W którym mieście odbyły się Letnie Igrzyska Olimpijskie 2020?",a:["Pekin","Paryż","Tokio","Seul"],c:2},
+  {cat:'SP',q:"Który kraj wygrał Mistrzostwa Świata w piłce nożnej 2022?",a:["Francja","Chorwacja","Brazylia","Argentyna"],c:3},
+  {cat:'SP',q:"Ile zawodników liczy drużyna rugby union?",a:["13","14","15","16"],c:2},
+  {cat:'SP',q:"Ile pól ma szachownica?",a:["48","56","64","72"],c:2},
+  {cat:'K',q:"Kto namalował obraz \"Mona Lisa\"?",a:["Michał Anioł","Rembrandt","Rafael","Leonardo da Vinci"],c:3},
+  {cat:'K',q:"Kto napisał \"Romeo i Julię\"?",a:["Charles Dickens","Victor Hugo","William Shakespeare","Johann Goethe"],c:2},
+  {cat:'K',q:"Kto stworzył postać Sherlocka Holmesa?",a:["Agatha Christie","Arthur Conan Doyle","Edgar Allan Poe","G.K. Chesterton"],c:1},
+  {cat:'K',q:"Kto skomponował IX Symfonię z \"Odą do Radości\"?",a:["Fryderyk Chopin","Wolfgang Amadeus Mozart","Johann Sebastian Bach","Ludwig van Beethoven"],c:3},
+  {cat:'K',q:"Kto napisał \"Władcę Pierścieni\"?",a:["C.S. Lewis","George R.R. Martin","J.R.R. Tolkien","Terry Pratchett"],c:2},
+  {cat:'K',q:"W którym kraju urodził się Wolfgang Amadeus Mozart?",a:["Niemcy","Szwajcaria","Austria","Czechy"],c:2},
+  {cat:'K',q:"Kto napisał epos narodowy \"Pan Tadeusz\"?",a:["Juliusz Słowacki","Adam Mickiewicz","Cyprian Norwid","Zygmunt Krasiński"],c:1},
+  {cat:'K',q:"Kto namalował cykl obrazów \"Słoneczniki\"?",a:["Paul Gauguin","Claude Monet","Vincent van Gogh","Paul Cézanne"],c:2},
+  {cat:'K',q:"Kto napisał powieść \"Rok 1984\"?",a:["Aldous Huxley","George Orwell","Ray Bradbury","H.G. Wells"],c:1},
+  {cat:'K',q:"W jakim muzeum w Paryżu wisi \"Mona Lisa\"?",a:["Luwr","Musée d'Orsay","Centre Pompidou","Wersal"],c:0},
+  {cat:'K',q:"Kto napisał \"Zbrodnię i Karę\"?",a:["Lew Tołstoj","Anton Czechow","Fiodor Dostojewski","Michaił Bułhakow"],c:2},
+  {cat:'K',q:"Kto namalował \"Ostatnią Wieczerzę\"?",a:["Rafael","Michał Anioł","Leonardo da Vinci","Caravaggio"],c:2},
+  {cat:'P',q:"Jakie jest najszybsze lądowe zwierzę na świecie?",a:["Lew","Koń","Gepard","Struś"],c:2},
+  {cat:'P',q:"Ile nóg ma pająk?",a:["6","8","10","12"],c:1},
+  {cat:'P',q:"Jaki jest największy ssak na świecie?",a:["Słoń afrykański","Rekin wielorybi","Płetwal błękitny","Hipopotam"],c:2},
+  {cat:'P',q:"Ile serc ma ośmiornica?",a:["1","2","3","4"],c:2},
+  {cat:'P',q:"W jakiej temperaturze topnieje lód (standardowe warunki)?",a:["−5°C","0°C","5°C","10°C"],c:1},
+  {cat:'P',q:"Który ptak jest najszybszy w locie nurkowym?",a:["Orzeł","Sokół wędrowny","Albatros","Jaskółka"],c:1},
+  {cat:'P',q:"Ile zębów ma zdrowy dorosły człowiek (z zębami mądrości)?",a:["28","30","32","34"],c:2},
+  {cat:'P',q:"Ile kończyn ma owad?",a:["4","6","8","10"],c:1},
+  {cat:'P',q:"Jak długo trwa ciąża słonia?",a:["12 miesięcy","16 miesięcy","18 miesięcy","22 miesiące"],c:3},
+  {cat:'P',q:"Ile par skrzydeł ma pszczoła miodna?",a:["1 parę","2 pary","3 pary","4 pary"],c:1},
+  {cat:'P',q:"Co wytwarza chlorofil w roślinach?",a:["Tlen z CO₂","Pokarm ze światła i CO₂","Wodę z gleby","Cukier z tlenu"],c:1},
+  {cat:'P',q:"Który gatunek drzewa jest najwyższy na świecie?",a:["Baobab","Sekwoja wieczniezielona","Eukaliptus","Dąb szypułkowy"],c:1},
+  {cat:'E',q:"Kto zagrał Iron Mana w filmach Marvel?",a:["Chris Evans","Chris Hemsworth","Robert Downey Jr.","Mark Ruffalo"],c:2},
+  {cat:'E',q:"W jakim kraju powstała firma LEGO?",a:["Szwecja","Norwegia","Finlandia","Dania"],c:3},
+  {cat:'E',q:"Który zespół nagrał utwór \"Bohemian Rhapsody\"?",a:["The Beatles","Led Zeppelin","Queen","Rolling Stones"],c:2},
+  {cat:'E',q:"Kto jest autorem przeboju \"Thriller\"?",a:["Prince","Michael Jackson","David Bowie","Elton John"],c:1},
+  {cat:'E',q:"W którym roku miała premierę kinowa \"Titanic\" Jamesa Camerona?",a:["1995","1996","1997","1998"],c:2},
+  {cat:'E',q:"Jak nazywa się seria gier Nintendo z hydraulikiem jako głównym bohaterem?",a:["Donkey Kong","Zelda","Metroid","Super Mario"],c:3},
+  {cat:'E',q:"Kto zagrał Jokera w filmie \"Mroczny Rycerz\" (2008)?",a:["Jack Nicholson","Joaquin Phoenix","Heath Ledger","Jared Leto"],c:2},
+  {cat:'E',q:"Kto jest autorką serii książek o Harrym Potterze?",a:["Stephenie Meyer","J.K. Rowling","Suzanne Collins","Philip Pullman"],c:1},
+  {cat:'E',q:"Kto zaśpiewał przebój \"Shape of You\" (2017)?",a:["Justin Bieber","Ed Sheeran","Bruno Mars","Sam Smith"],c:1},
+  {cat:'E',q:"W którym roku miała premierę pierwsza część \"Gwiezdnych Wojen\"?",a:["1975","1977","1979","1980"],c:1},
+  {cat:'E',q:"Kto zagrał główną rolę w filmie \"Forrest Gump\" (1994)?",a:["Tom Cruise","Brad Pitt","Tom Hanks","Kevin Costner"],c:2},
+  {cat:'E',q:"W którym roku powstał serwis społecznościowy Facebook?",a:["2002","2003","2004","2005"],c:2},
+];
+
+const LETTERS = ['A','B','C','D'];
+const TIMER_MAX = 15;
+const CIRC = 2 * Math.PI * 27; // ≈ 169.6
+const QUESTIONS_PER_CATEGORY = 2;
+
+// ── Stan lokalny ──
+let roomCode = '';
+let serverTimeOffset = 0;
+
+let myUID = sessionStorage.getItem('wqUID') || (() => {
+  const id = Math.random().toString(36).substr(2,9);
+  sessionStorage.setItem('wqUID', id);
+  return id;
+})();
+
+let myName = '';
+let isHost = false;
+let lifelineAvailable = true;
+let myScore = 0;
+let myCorrect = 0;
+let hasAnswered = false;
+let timerInterval = null;
+let hostAdvanceTimer = null;
+let currentQIdx = -1;
+let currentQStart = 0;
+let selectedQ = [];
+let db, gameRef;
+
+// ── Helpers ──
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function getRoomFromURL() {
+  return new URLSearchParams(window.location.search).get('room') || '';
+}
+
+function setRoomInURL(code) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('room', code);
+  window.history.replaceState({}, '', url.toString());
+}
+
+// ── Inicjalizacja Firebase ──
+function initFirebase(code) {
+  if (firebaseConfig.apiKey === 'WKLEJ_apiKey') {
+    document.getElementById('config-warning').style.display = 'block';
+    return false;
+  }
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    gameRef = db.ref('rooms/' + code);
+    db.ref('.info/serverTimeOffset').once('value', snap => {
+      serverTimeOffset = snap.val() || 0;
+    });
+    return true;
+  } catch(e) {
+    const w = document.getElementById('config-warning');
+    w.style.display = 'block';
+    w.textContent = '⚠️ Błąd Firebase: ' + e.message;
+    return false;
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function shuffle(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function selectQuestions() {
+  const byCategory = {};
+  QUESTION_BANK.forEach((q,i) => {
+    if (!byCategory[q.cat]) byCategory[q.cat] = [];
+    byCategory[q.cat].push(i);
+  });
+  const selected = [];
+  Object.values(byCategory).forEach(indices => {
+    selected.push(...shuffle([...indices]).slice(0, QUESTIONS_PER_CATEGORY));
+  });
+  return shuffle(selected);
+}
+
+// ── Dołącz do gry ──
+async function joinGame() {
+  const err = document.getElementById('join-error');
+  const name = document.getElementById('name-input').value.trim();
+  if (!name) { err.textContent = 'Wpisz nickname!'; return; }
+
+  let code = document.getElementById('room-input').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (!code) code = generateRoomCode();
+  if (code.length > 4) code = code.slice(0, 4);
+
+  if (!initFirebase(code)) return;
+  roomCode = code;
+  setRoomInURL(code);
+  document.getElementById('room-code-display').textContent = code;
+
+  err.textContent = 'Łączenie...';
+
+  try {
+    const snap = await gameRef.once('value');
+    const data = snap.val() || {};
+    const players = data.players || {};
+
+    // Reconnect: gracz już jest w tej sesji
+    if (data.status === 'playing' && players[myUID]) {
+      myName = players[myUID].name;
+      myScore = players[myUID].score || 0;
+      myCorrect = players[myUID].correct || 0;
+      isHost = data.host === myUID;
+      lifelineAvailable = players[myUID].lifeline !== false;
+      err.textContent = '';
+      listenToGame();
+      return;
+    }
+
+    if (data.status === 'playing') {
+      err.textContent = 'Gra już trwa. Poczekaj na następną rundę.';
+      return;
+    }
+
+    const nameTaken = Object.values(players).some(p => p.name.toLowerCase() === name.toLowerCase());
+    if (nameTaken) { err.textContent = 'Ten nickname jest już zajęty!'; return; }
+
+    myName = name;
+    const noPlayers = Object.keys(players).length === 0;
+    isHost = noPlayers;
+
+    await gameRef.child('players/' + myUID).set({ name, score: 0, correct: 0 });
+    gameRef.child('players/' + myUID).onDisconnect().remove();
+
+    if (noPlayers) {
+      await gameRef.update({ host: myUID, status: 'lobby' });
+    }
+
+    // Jeśli host się rozłączy, wyzeruj pole host żeby inni mogli przejąć
+    gameRef.child('host').onDisconnect().transaction(cur => {
+      if (cur === myUID) return null;
+      return cur;
+    });
+
+    err.textContent = '';
+    listenToGame();
+  } catch(e) {
+    err.textContent = 'Błąd połączenia: ' + e.message;
+  }
+}
+
+// ── Nasłuchuj stanu gry ──
+function listenToGame() {
+  gameRef.on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+
+    const players = data.players || {};
+
+    // Migracja hosta: jeśli host się rozłączył, pierwszy gracz (wg UID) przejmuje
+    if (!data.host || !players[data.host]) {
+      const sortedUIDs = Object.keys(players).sort();
+      if (sortedUIDs.length > 0 && sortedUIDs[0] === myUID) {
+        gameRef.child('host').transaction(cur => {
+          if (!cur || !players[cur]) return myUID;
+          return undefined; // ktoś inny już przejął
+        });
+      }
+    }
+
+    isHost = data.host === myUID;
+
+    if (data.status === 'lobby') {
+      renderLobby(data);
+    } else if (data.status === 'playing') {
+      const newIdx = data.qIdx ?? 0;
+      if (newIdx !== currentQIdx) {
+        currentQIdx = newIdx;
+        currentQStart = data.qStart || Date.now();
+        selectedQ = data.selected || [];
+        renderQuestion(data);
+      }
+      updateAnsweredCount(data);
+    } else if (data.status === 'finished') {
+      clearTimers();
+      renderResults(data);
+    }
+  });
+}
+
+// ── Lobby ──
+function renderLobby(data) {
+  showScreen('screen-lobby');
+  const players = data.players || {};
+  const hostUID = data.host;
+  const el = document.getElementById('lobby-players');
+  el.innerHTML = '';
+  Object.entries(players).forEach(([uid, p]) => {
+    const div = document.createElement('div');
+    div.className = 'lobby-player';
+    div.innerHTML = `
+      <div class="lobby-avatar">${p.name[0].toUpperCase()}</div>
+      <span class="lobby-name">${escHtml(p.name)}</span>
+      ${uid === hostUID ? '<span class="badge badge-host">Host</span>' : ''}
+      ${uid === myUID   ? '<span class="badge badge-you">Ty</span>'   : ''}
+    `;
+    el.appendChild(div);
+  });
+  document.getElementById('host-start').style.display = isHost ? 'block' : 'none';
+  document.getElementById('guest-wait').style.display  = isHost ? 'none'  : 'block';
+}
+
+async function hostStartGame() {
+  if (!isHost) return;
+  const questions = selectQuestions();
+  const snap = await gameRef.child('players').once('value');
+  const updates = {
+    status: 'playing',
+    selected: questions,
+    qIdx: 0,
+    qStart: firebase.database.ServerValue.TIMESTAMP,
+    answers: null
+  };
+  Object.keys(snap.val()||{}).forEach(uid => {
+    updates[`players/${uid}/score`]   = 0;
+    updates[`players/${uid}/correct`] = 0;
+  });
+  myScore = 0; myCorrect = 0; lifelineAvailable = true;
+  await gameRef.update(updates);
+}
+
+// ── Pytanie ──
+function renderQuestion(data) {
+  clearTimers();
+  hasAnswered = false;
+  const q = QUESTION_BANK[selectedQ[currentQIdx]];
+  const total = selectedQ.length;
+  const players = data.players || {};
+
+  document.getElementById('hud-players').textContent = Object.keys(players).length;
+  document.getElementById('hud-score').textContent   = myScore;
+  document.getElementById('question-num').textContent  = `Pytanie ${currentQIdx+1} / ${total}`;
+  document.getElementById('question-text').textContent = q.q;
+  document.getElementById('progress-fill').style.width = ((currentQIdx/total)*100)+'%';
+  document.getElementById('feedback-text').textContent = '';
+  document.getElementById('feedback-text').className   = 'feedback-text';
+  document.getElementById('answered-count').textContent = '';
+  document.getElementById('lifeline-btn').disabled = !lifelineAvailable;
+
+  const grid = document.getElementById('answers-grid');
+  grid.innerHTML = '';
+  q.a.forEach((ans,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.innerHTML = `<span class="answer-letter">${LETTERS[i]}</span>${escHtml(ans)}`;
+    btn.onclick = () => selectAnswer(i, q);
+    grid.appendChild(btn);
+  });
+
+  showScreen('screen-question');
+
+  // Użyj offsetu czasu serwera dla dokładnej synchronizacji
+  const localNow  = Date.now() + serverTimeOffset;
+  const elapsed   = Math.floor((localNow - currentQStart) / 1000);
+  let timeLeft    = Math.max(0, TIMER_MAX - elapsed);
+  updateTimerUI(timeLeft);
+
+  if (timeLeft === 0) { handleTimeUp(q); return; }
+
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerUI(timeLeft);
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      handleTimeUp(q);
+    }
+  }, 1000);
+
+  if (isHost) {
+    hostAdvanceTimer = setTimeout(() => advanceAfterReveal(), timeLeft * 1000 + 2100);
+  }
+}
+
+function updateTimerUI(t) {
+  const arc  = document.getElementById('timer-arc');
+  const disp = document.getElementById('timer-display');
+  arc.style.strokeDashoffset = CIRC * (1 - t/TIMER_MAX);
+  disp.textContent = t;
+  const color = t > 5 ? 'var(--gold)' : 'var(--red)';
+  arc.style.stroke  = color;
+  disp.style.color  = color;
+}
+
+function handleTimeUp(q) {
+  if (hasAnswered) return;
+  hasAnswered = true;
+  gameRef.child(`answers/${currentQIdx}/${myUID}`).set(-1);
+  revealAnswer(q, -1, 0);
+}
+
+async function selectAnswer(chosen, q) {
+  if (hasAnswered) return;
+  hasAnswered = true;
+  clearTimers();
+
+  const localNow  = Date.now() + serverTimeOffset;
+  const elapsed   = Math.floor((localNow - currentQStart) / 1000);
+  const timeLeft  = Math.max(0, TIMER_MAX - elapsed);
+  const correct   = chosen === q.c;
+  const pts       = correct ? Math.max(1, Math.round(timeLeft/TIMER_MAX*10)) : 0;
+
+  if (correct) {
+    myScore += pts;
+    myCorrect++;
+    gameRef.child(`players/${myUID}/score`).set(myScore);
+    gameRef.child(`players/${myUID}/correct`).set(myCorrect);
+  }
+  gameRef.child(`answers/${currentQIdx}/${myUID}`).set(chosen);
+  revealAnswer(q, chosen, pts);
+
+  if (isHost) {
+    hostAdvanceTimer = setTimeout(() => advanceAfterReveal(), 2200);
+  }
+}
+
+function revealAnswer(q, chosen, pts) {
+  clearInterval(timerInterval);
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach(b => b.disabled = true);
+  btns[q.c].classList.add('correct');
+  if (chosen >= 0 && chosen !== q.c) btns[chosen].classList.add('wrong');
+  const fb = document.getElementById('feedback-text');
+  if (chosen < 0)       { fb.textContent = '⏱ Czas minął!';          fb.className = 'feedback-text wrong'; }
+  else if (chosen===q.c){ fb.textContent = `✓ Świetnie! +${pts} pkt`; fb.className = 'feedback-text correct'; }
+  else                  { fb.textContent = '✗ Błędna odpowiedź';      fb.className = 'feedback-text wrong'; }
+}
+
+function updateAnsweredCount(data) {
+  const answers = (data.answers||{})[currentQIdx] || {};
+  const players = data.players || {};
+  const n = Object.keys(answers).length;
+  const t = Object.keys(players).length;
+  const el = document.getElementById('answered-count');
+  if (el && n > 0) el.textContent = `Odpowiedzi: ${n}/${t}`;
+}
+
+async function advanceAfterReveal() {
+  if (!isHost) return;
+  const nextIdx = currentQIdx + 1;
+  if (nextIdx >= selectedQ.length) {
+    await gameRef.update({ status:'finished' });
+  } else {
+    await gameRef.update({ qIdx:nextIdx, qStart:firebase.database.ServerValue.TIMESTAMP });
+  }
+}
+
+// ── Koło ratunkowe ──
+function useLifeline() {
+  if (!lifelineAvailable || hasAnswered) return;
+  lifelineAvailable = false;
+  document.getElementById('lifeline-btn').disabled = true;
+  const q = QUESTION_BANK[selectedQ[currentQIdx]];
+  const btns = Array.from(document.querySelectorAll('.answer-btn'));
+  const wrongIdxs = btns.map((_,i)=>i).filter(i=>i!==q.c);
+  shuffle(wrongIdxs).slice(0,2).forEach(i => {
+    btns[i].style.opacity = '0.15';
+    btns[i].style.pointerEvents = 'none';
+    btns[i].disabled = true;
+  });
+}
+
+// ── Wyniki ──
+function renderResults(data) {
+  const players = Object.values(data.players||{}).sort((a,b)=>b.score-a.score);
+  const total   = (data.selected||[]).length;
+  const medals  = ['🥇','🥈','🥉'];
+  const rcls    = ['r1','r2','r3'];
+
+  const tbody = document.getElementById('result-tbody');
+  tbody.innerHTML = '';
+  players.forEach((p, i) => {
+    const rank = i+1;
+    const tr = document.createElement('tr');
+    tr.className = rank<=3 ? `rank-${rank}` : '';
+    tr.style.animationDelay = (i*.08)+'s';
+    tr.innerHTML = `
+      <td class="td-rank"><span class="rank-badge ${rank<=3?rcls[i]:'rn'}">${rank<=3?medals[i]:rank}</span></td>
+      <td><div class="td-player">
+        <div class="td-avatar">${p.name[0].toUpperCase()}</div>
+        <span class="td-nick">${escHtml(p.name)}</span>
+      </div></td>
+      <td class="td-cor"><span class="ok">${p.correct??0}</span><span class="tot">/${total}</span></td>
+      <td class="td-pts">${p.score} <span style="font-size:.65rem;color:#888;">PKT</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('play-again-btn').style.display = isHost ? 'block' : 'none';
+  showScreen('screen-results');
+}
+
+async function playAgain() {
+  if (!isHost) return;
+  myScore = 0; myCorrect = 0; currentQIdx = -1; lifelineAvailable = true;
+  await gameRef.update({ status:'lobby', selected:null, qIdx:null, qStart:null, answers:null });
+}
+
+function clearTimers() {
+  clearInterval(timerInterval);
+  clearTimeout(hostAdvanceTimer);
+}
+
+// ── Zaproszenie ──
+function copyInviteLink() {
+  const url = window.location.origin + window.location.pathname + '?room=' + roomCode;
+  const btn = document.getElementById('copy-btn');
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✓ Skopiowano!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Skopiuj link'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    prompt('Skopiuj link zaproszenia:', url);
+  });
+}
+
+function updateCodePreview(val, blur = false) {
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('cc' + i);
+    const ch = val[i];
+    el.textContent = ch || '_';
+    el.classList.toggle('filled', !!ch);
+    el.classList.toggle('cursor', !blur && i === val.length && val.length < 4);
+  }
+}
+
+// Przy ładowaniu strony: pobierz kod pokoju z URL
+window.addEventListener('load', () => {
+  const code = getRoomFromURL();
+  if (code) {
+    const inp = document.getElementById('room-input');
+    inp.value = code;
+    updateCodePreview(code, true);
+  }
+});
+</script>
+</body>
+</html>
